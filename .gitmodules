@@ -1,0 +1,9 @@
+[submodule "lib/zstd"]
+	path = lib/zstd
+	url = https://github.com/facebook/zstd.git
+[submodule "lib/xtime_cpp"]
+	path = lib/xtime_cpp
+	url = https://github.com/NewYaroslav/xtime_cpp.git
+[submodule "lib/banana-filesystem-cpp"]
+	path = lib/banana-filesystem-cpp
+	url = https://github.com/NewYaroslav/banana-filesystem-cpp.git
