@@ -1,4 +1,5 @@
 #include "xquotes_quotation_files.hpp"
+#include "xquotes_csv.hpp"
 #include <vector>
 #include <array>
 #include <iostream>
@@ -32,6 +33,43 @@ int main() {
 
         }
     }
+
+#if(0)
+    std::vector<xquotes_csv::Candle> candles;
+    std::cout << xquotes_csv::read_file("..\\..\\csv\\EURUSD1.csv", true, true, [&](xquotes_csv::Candle candle) {
+         candles.push_back(candle);
+    }) << std::endl;
+    std::cout << "size: " << candles.size() << std::endl;
+#endif
+
+    int err_csv = xquotes_csv::read_file("..\\..\\csv\\EURUSD1.csv", true, true, [&](xquotes_csv::Candle candle) {
+        static int last_day = -1;
+        static std::array<double, xtime::MINUTES_IN_DAY> close;
+        static unsigned long long file_timestamp = 0;
+        int minute_day = xtime::get_minute_day(candle.timestamp);
+        if(last_day == -1) { // момент инициализации
+            last_day = xtime::get_day(candle.timestamp);
+            file_timestamp = candle.timestamp;
+            std::fill(close.begin(), close.end(), 0);
+            close[minute_day] = candle.close;
+        } else {
+            int real_day = xtime::get_day(candle.timestamp);
+            if(real_day != last_day) {
+                last_day = real_day;
+                // записываем данные тут
+                xtime::DateTime iTime(file_timestamp);
+                iTime.set_beg_day();
+                file_timestamp = iTime.get_timestamp();
+                std::cout << "new day " << xtime::get_str_unix_date_time(file_timestamp) << std::endl;
+
+                //...
+                std::fill(close.begin(), close.end(), 0);
+                file_timestamp = candle.timestamp;
+            }
+            close[minute_day] = candle.close;
+        }
+
+    });
 
     return 0;
 }
