@@ -33,92 +33,99 @@
 namespace xquotes_csv {
     using namespace xquotes_common;
 
-    class Candle {
-    public:
-        double open = 0;
-        double high = 0;
-        double low = 0;
-        double close = 0;
-        unsigned long long timestamp = 0;
-        Candle() {};
+    bool get_line_param(
+            const std::string &str,
+            unsigned long long &timestamp,
+            double &open,
+            double &high,
+            double &low,
+            double &close,
+            double &volume) {
+            std::size_t offset = 0;
+            std::size_t found = str.find_first_of(";,", offset);
+            if(found == std::string::npos) return false;
+            std::string str_date = str.substr(offset, found - offset);
+            if(str_date.size() == 10) {
+                // для формата на примере 2018.05.22,21:31
+                offset = found + 1;
+                found = str.find_first_of(";,", offset);
+                std::string str_time = str.substr(offset, found - offset);
 
-        Candle(double open, double high, double low, double close, unsigned long long timestamp) {
-            Candle::open = open;
-            Candle::high = high;
-            Candle::low = low;
-            Candle::close = close;
-            Candle::timestamp = timestamp;
+                xtime::DateTime iTime(
+                    atoi((str_date.substr(8, 2)).c_str()),
+                    atoi((str_date.substr(5, 2)).c_str()),
+                    atoi((str_date.substr(0, 4)).c_str()),
+                    atoi((str_time.substr(0, 2)).c_str()),
+                    atoi((str_time.substr(3, 2)).c_str()),
+                    0);
+                timestamp = iTime.get_timestamp();
+            } else
+            if(str_date.size() == 23) {
+                // для формата на примере 03.10.2018 12:43:00.000
+
+                xtime::DateTime iTime(
+                    atoi((str_date.substr(0, 2)).c_str()),
+                    atoi((str_date.substr(3, 2)).c_str()),
+                    atoi((str_date.substr(6, 4)).c_str()),
+                    atoi((str_date.substr(11, 2)).c_str()),
+                    atoi((str_date.substr(14, 2)).c_str()),
+                    atoi((str_date.substr(17, 2)).c_str()));
+                timestamp = iTime.get_timestamp();
+            } else {
+                std::cout << "error dae time size: " << str_date.size() << std::endl;
+                return false;
+            }
+            // price open
+            offset = found + 1;
+            found = str.find_first_of(";,", offset);
+            if(found == std::string::npos) return false;
+            open = atof((str.substr(offset, found - offset)).c_str());
+            // price high
+            offset = found + 1;
+            found = str.find_first_of(";,", offset);
+            if(found == std::string::npos) return false;
+            high = atof((str.substr(offset, found - offset)).c_str());
+            // price low
+            offset = found + 1;
+            found = str.find_first_of(";,", offset);
+            if(found == std::string::npos) return false;
+            low = atof((str.substr(offset, found - offset)).c_str());
+            // price close
+            offset = found + 1;
+            found = str.find_first_of(";,", offset);
+            if(found == std::string::npos) return false;
+            close = atof((str.substr(offset, found - offset)).c_str());
+            volume = atof((str.substr(found + 1)).c_str());
+
+            //std::cout << open << " " << high << " " << low << " " << close << " " << volume << std::endl;
+            return true;
         }
-    };
 
     int read_file(
             std::string file_name,
             bool is_read_header,
             bool is_cet_to_gmt,
-            std::function<void (Candle candle)> f
+            std::function<void (Candle candle, bool is_end)> f
             ) {
         std::ifstream file(file_name);
         if (!file.is_open()) {
             return FILE_CANNOT_OPENED;
         }
         std::string buffer;
-        unsigned long long last_unix = 0;
+
         // получаем заголовок файла
         if(is_read_header) std::getline(file, buffer);
+
         while(!file.eof()) {
             std::getline(file, buffer);
-            std::size_t offset = 0;
-            std::size_t found = buffer.find_first_of(";,", offset);
-            if(found == std::string::npos) break;
-
-            std::string str_data = buffer.substr(offset, found - offset);
-
-            offset = found + 1;
-            found = buffer.find_first_of(";,", offset);
-            std::string str_data2 = buffer.substr(offset, found - offset);
-
-            xtime::DateTime iTime(
-                atoi((str_data.substr(8, 2)).c_str()),
-                atoi((str_data.substr(5, 2)).c_str()),
-                atoi((str_data.substr(0, 4)).c_str()),
-                atoi((str_data2.substr(0, 2)).c_str()),
-                atoi((str_data2.substr(3, 2)).c_str()),
-                0);
-
-            // price open
-            offset = found + 1;
-            found = buffer.find_first_of(";,", offset);
-            if(found == std::string::npos) break;
-            double open = atof((buffer.substr(offset, found - offset)).c_str());
-            // price high
-            offset = found + 1;
-            found = buffer.find_first_of(";,", offset);
-            if(found == std::string::npos) break;
-            double high = atof((buffer.substr(offset, found - offset)).c_str());
-            // price low
-            offset = found + 1;
-            found = buffer.find_first_of(";,", offset);
-            if(found == std::string::npos) break;
-            double low = atof((buffer.substr(offset, found - offset)).c_str());
-            // price close
-            offset = found + 1;
-            found = buffer.find_first_of(";,", offset);
-            if(found == std::string::npos) break;
-            double close = atof((buffer.substr(offset, found - offset)).c_str());
-
-            unsigned long long unix = iTime.get_timestamp();
-            if(is_cet_to_gmt) unix = xtime::convert_cet_to_gmt(unix);
-            f(Candle(open, high, low, close, unix));
-
-            /*
-            if(last_unix == unix && candles.size() > 0) {
-                candles[candles.size() - 1] = Candle(open, high, low, close, unix);
-                continue;
-            } else {
-                candles.push_back(Candle(open, high, low, close, unix));
-                last_unix = unix;
+            unsigned long long timestamp;
+            double open, high, low, close, volume;
+            if(!get_line_param(buffer, timestamp, open, high, low, close, volume)) {
+                f(Candle(open, high, low, close, volume, timestamp), true);
+                break;
             }
-            */
+            if(is_cet_to_gmt) timestamp = xtime::convert_cet_to_gmt(timestamp);
+            f(Candle(open, high, low, close, volume, timestamp), false);
         }
         file.close();
         return OK;

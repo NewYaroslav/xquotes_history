@@ -21,34 +21,25 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
-#ifndef ZSTDEASY_HPP_INCLUDED
-#define ZSTDEASY_HPP_INCLUDED
+#ifndef XQUOTES_ZSTDEASY_HPP_INCLUDED
+#define XQUOTES_ZSTDEASY_HPP_INCLUDED
 //------------------------------------------------------------------------------
 #include "banana_filesystem.hpp"
 #include "dictBuilder/zdict.h"
 #include "zstd.h"
+#include <cstring>
 //------------------------------------------------------------------------------
-//#define ZSTD_EASY_USE_BINARY_API
-
-#ifdef ZSTD_EASY_USE_BINARY_API
-#include "BinaryAPI.hpp"
-#include "BinaryApiEasy.hpp"
-#endif
-#include "BinaryApiCommon.hpp"
-//------------------------------------------------------------------------------
-namespace ZstdEasy
+namespace xquotes_zstd
 {
-        using namespace BinaryApiCommon;
+        using namespace xquotes_common;
 //------------------------------------------------------------------------------
         /** \brief Тренируйте словарь из массива образцов
         * \param path путь к файлам
         * \param file_name имя файл словаря, который будет сохранен по окончанию обучения
         * \return венет 0 в случае успеха
         */
-        int train_zstd(std::string path, std::string file_name, size_t dict_buffer_capacit = 102400)
+        int train_zstd(std::vector<std::string> &files_list, std::string file_name, size_t dict_buffer_capacit = 102400)
         {
-                std::vector<std::string> files_list;
-                bf::get_list_files(path, files_list, true);
                 size_t all_files_size = 0;
                 void *samples_buffer = NULL;
 
@@ -73,7 +64,7 @@ namespace ZstdEasy
                                                 free(samples_size);
                                         return NOT_OPEN_FILE;
                                 } else {
-                                        std::cout << "load file: " << files_list[i] << std::endl;
+                                        std::cout << "load file: " << files_list[i] << " #" << num_files << std::endl;
                                 }
                         } else {
                                 std::cout << "buffer size: error, " << files_list[i] << std::endl;
@@ -91,6 +82,19 @@ namespace ZstdEasy
                 size_t file_size = ZDICT_trainFromBuffer(dict_buffer, dict_buffer_capacit, samples_buffer, samples_size, num_files);
                 size_t err = bf::write_file(file_name, dict_buffer, file_size);
                 return err > 0 ? OK : NOT_WRITE_FILE;
+        }
+
+        /** \brief Тренируйте словарь из массива образцов
+         * \param path путь к файлам
+         * \param file_name имя файл словаря, который будет сохранен по окончанию обучения
+         * \return венет 0 в случае успеха
+         */
+        int train_zstd(std::string path, std::string file_name, size_t dict_buffer_capacit = 102400)
+        {
+                std::vector<std::string> files_list;
+                bf::get_list_files(path, files_list, true);
+
+                return train_zstd(files_list, file_name, dict_buffer_capacit);
         }
 //------------------------------------------------------------------------------
         /** \brief Сжать файл с использованием словаря
@@ -237,7 +241,7 @@ namespace ZstdEasy
                         times.size() * sizeof(unsigned long long);
                 void *buffer = NULL;
                 buffer = malloc(buffer_size);
-                memset(buffer, 0, buffer_size);
+                std::memset(buffer, 0, buffer_size);
                 size_t buffer_offset = 0;
                 unsigned long data_size = times.size();
                 std::memcpy((unsigned char*)buffer + buffer_offset, &data_size, sizeof(data_size));

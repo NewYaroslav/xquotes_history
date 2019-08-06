@@ -1,5 +1,5 @@
 /*
-* xquotes_history - C++ header-only library for working with quotes
+* xquotes_history - C++ header-only library for working with historical quotes data
 *
 * Copyright (c) 2018 Elektro Yar. Email: git.electroyar@gmail.com
 *
@@ -21,33 +21,24 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
-#ifndef BINARYAPIEASY_HPP_INCLUDED
-#define BINARYAPIEASY_HPP_INCLUDED
+#ifndef XQUOTES_FILES_HPP_INCLUDED
+#define XQUOTES_FILES_HPP_INCLUDED
 
 #include "xquotes_common.hpp"
 #include "banana_filesystem.hpp"
 #include "xtime.hpp"
 #include <limits>
+#include <algorithm>
+#include <random>
+#include <cstdio>
 
-namespace xquotes_history {
+#include <iostream>
+
+namespace xquotes_files {
     using namespace xquotes_common;
-
-    /** \brief Перевести double-цену в формат uint32_t
-     * \param price цена
-     * \return цена в формате uint32_t
-     */
-    inline unsigned long convert_to_int(double price) {
-        return (unsigned long)((price * PRICE_MULTIPLER) + 0.5);
-    }
-
-    /** \brief Перевести uint32_t-цену в формат double
-     * \param price цена
-     * \return цена в формате uint32_t
-     */
-    inline double convert_to_double(unsigned long price) {
-        return (double)price / PRICE_MULTIPLER;
-    }
-
+//------------------------------------------------------------------------------
+// РАБОТА С ОДИНОЧНЫМИ ФАЙЛАМИ
+//------------------------------------------------------------------------------
     /** \brief Получить имя файла из даты
      * Выбрана последовательность ГОД МЕСЯЦ ДЕНЬ чтобы файлы были
      * в алфавитном порядке
@@ -63,20 +54,98 @@ namespace xquotes_history {
         return file_name;
     }
 
+    inline void write_u32(std::ofstream &file, const double &value) {
+        price_t temp = convert_to_uint(value);
+        file.write(reinterpret_cast<char *>(&temp), sizeof(price_t));
+    }
+
+    inline void write_null_u32(std::ofstream &file) {
+        price_t PRICE_NULL = 0;
+        file.write(reinterpret_cast<char *>(&PRICE_NULL), sizeof(price_t));
+    }
+
+    inline double read_u32(std::ifstream &file) {
+        price_t temp = 0;
+        file.read(reinterpret_cast<char *>(&temp), sizeof(price_t));
+        return convert_to_double(temp);
+    }
+
     /** \brief Записать бинарный файл котировок
+     * Данная функция заприсывает котировки только для одной цены, например для close
      * \param file_name имя файла
      * \param prices котировки
      * \return вернет 0 в случае успешного завершения
      */
     template <typename T>
-    int write_binary_file(
+    int write_bin_file_u32_1x(
             std::string file_name,
             T &prices) {
         if(prices.size() != MINUTES_IN_DAY) return INVALID_ARRAY_LENGH;
         std::ofstream file(file_name, std::ios_base::binary);
         for(int i = 0; i < MINUTES_IN_DAY; ++i) {
-            unsigned long value = convert_to_int(prices[i]);
-            file.write(reinterpret_cast<char *>(&value), sizeof(unsigned long));
+            write_u32(file, prices[i]);
+        }
+        file.close();
+        return OK;
+    }
+
+    template <typename T>
+    inline void write_candle_u32_4x(std::ofstream &file, const T &candle, const int &indx) {
+        write_u32(file, candle.open);
+        write_u32(file, candle.high);
+        write_u32(file, candle.low);
+        write_u32(file, candle.close);
+    }
+
+    inline void write_null_candle_u32_4x(std::ofstream &file) {
+        for(int i = 0; i < 4; ++i) {
+            write_null_u32(file);
+        }
+    }
+
+    inline void write_null_candle_u32_5x(std::ofstream &file) {
+        for(int i = 0; i < 4; ++i) {
+            write_null_u32(file);
+        }
+    }
+
+    template <typename T>
+    inline void write_candle_u32_5x(std::ofstream &file, const T &candle, const int &indx) {
+        write_u32(file, candle.open);
+        write_u32(file, candle.high);
+        write_u32(file, candle.low);
+        write_u32(file, candle.close);
+        write_u32(file, candle.volume);
+    }
+
+    /** \brief Записать бинарный файл котировок
+     * Данная функция может принимать котировки с пропусками временых меток
+     * \param file_name имя файла
+     * \param prices котировки
+     * \param times временные метки
+     * \return вернет 0 в случае успешного завершения
+     */
+    int write_bin_file_u32_1x(std::string file_name,
+            std::vector<double> &prices,
+            std::vector<xtime::timestamp_type> &times) {
+        if(prices.size() != times.size() || prices.size() == 0) return INVALID_ARRAY_LENGH;
+        std::ofstream file(file_name, std::ios_base::binary);
+        xtime::DateTime iTime(times[0]);
+        iTime.set_beg_day();
+        xtime::timestamp_type timestamp = iTime.get_timestamp();
+        size_t times_indx = 0;
+        for(size_t i = 0; i < MINUTES_IN_DAY; ++i) {
+            if(times_indx >= times.size()) {
+                write_null_u32(file);
+            } else
+            if(times[times_indx] == timestamp) {
+                write_u32(file, prices[times_indx]);
+                times_indx++;
+            } else
+            if(times[times_indx] > timestamp) {
+                write_null_u32(file);
+            }
+            timestamp += xtime::SECONDS_IN_MINUTE;
         }
         file.close();
         return OK;
@@ -84,36 +153,68 @@ namespace xquotes_history {
 
     /** \brief Записать бинарный файл котировок
      * Данная функция может принимать котировки с пропусками временых меток
-     * Еще данная функция
+     * Данная функция записывает котировки для 4-х значений цен (цены свечи\бара)
      * \param file_name имя файла
-     * \param prices котировки
+     * \param candles котировки в виде массива свечей\баров
      * \param times временные метки
      * \return вернет 0 в случае успешного завершения
      */
-    int write_binary_file(std::string file_name,
-            std::vector<double> &prices,
-            std::vector<unsigned long long> &times) {
-        if(prices.size() != times.size() || prices.size() == 0) return INVALID_ARRAY_LENGH;
+    template <typename T>
+    int write_bin_file_u32_4x(std::string file_name, T &candles) {
+        if(candles.size() == 0) return INVALID_ARRAY_LENGH;
         std::ofstream file(file_name, std::ios_base::binary);
-        xtime::DateTime iTime(times[0]);
+        xtime::DateTime iTime(candles[0].timestamp);
         iTime.set_beg_day();
         unsigned long long timestamp = iTime.get_timestamp();
-        int times_indx = 0;
-        for(int i = 0; i < MINUTES_IN_DAY; ++i) {
-            const unsigned long PRICE_NULL = 0;
-            if(times_indx >= times.size()) {
-                file.write(const_cast<char* >(reinterpret_cast<const char *>(&PRICE_NULL)), sizeof(unsigned long));
+        size_t indx = 0;
+        for(size_t i = 0; i < MINUTES_IN_DAY; ++i) {
+            if(indx >= candles.size()) {
+                write_null_candle_u32_4x(file);
             } else
-            if(times[times_indx] == timestamp) {
-                unsigned long value = convert_to_int(prices[times_indx]);
-                file.write(reinterpret_cast<char *>(&value), sizeof(unsigned long));
-                times_indx++;
+            if(candles[indx].timestamp == timestamp) {
+                write_candle_u32_4x(file, candles[i], i);
+                indx++;
+
             } else
-            if(times[times_indx] > timestamp) {
-                file.write(const_cast<char* >(reinterpret_cast<const char *>(&PRICE_NULL)), sizeof(unsigned long));
+            if(candles[indx].timestamp > timestamp) {
+                write_null_candle_u32_4x(file);
             }
             timestamp += xtime::SECONDS_IN_MINUTE;
-        }
+        } // for i
+        file.close();
+        return OK;
+    }
+
+    /** \brief Записать бинарный файл котировок
+     * Данная функция может принимать котировки с пропусками временых меток
+     * Данная функция записывает котировки для 4-х значений цен (цены свечи\бара) и объем
+     * \param file_name имя файла
+     * \param candles котировки в виде массива свечей\баров
+     * \param times временные метки
+     * \return вернет 0 в случае успешного завершения
+     */
+    template <typename T>
+    int write_bin_file_u32_5x(std::string file_name, T &candles) {
+        if(candles.size() == 0) return INVALID_ARRAY_LENGH;
+        std::ofstream file(file_name, std::ios_base::binary);
+        xtime::DateTime iTime(candles[0].timestamp);
+        iTime.set_beg_day();
+        unsigned long long timestamp = iTime.get_timestamp();
+        size_t indx = 0;
+        for(size_t i = 0; i < MINUTES_IN_DAY; ++i) {
+            if(indx >= candles.size()) {
+                write_null_candle_u32_5x(file);
+            } else
+            if(candles[indx].timestamp == timestamp) {
+                write_candle_u32_5x(file, candles[i], i);
+                indx++;
+
+            } else
+            if(candles[indx].timestamp > timestamp) {
+                write_null_candle_u32_5x(file);
+            }
+            timestamp += xtime::SECONDS_IN_MINUTE;
+        } // for i
         file.close();
         return OK;
     }
@@ -125,19 +226,15 @@ namespace xquotes_history {
      * \param times временные метки
      * \return вернет 0 в случае успешного завершения
      */
-    int read_binary_file(std::string file_name,
+    int read_bin_file_u32_1x(std::string file_name,
             unsigned long long start_timestamp,
             std::vector<double> &prices,
             std::vector<unsigned long long> &times) {
         std::ifstream file(file_name, std::ios_base::binary);
         if(!file) return FILE_CANNOT_OPENED;
         for(int i = 0; i < MINUTES_IN_DAY; ++i) {
-            unsigned long value = 0;
-            file.read(reinterpret_cast<char *>(&value),sizeof (unsigned long));
-            if(value != 0) {
-                prices.push_back(convert_to_double(value));
-                times.push_back(start_timestamp);
-            }
+            prices.push_back(read_u32(file));
+            times.push_back(start_timestamp);
             start_timestamp += xtime::SECONDS_IN_MINUTE;
         }
         file.close();
@@ -150,14 +247,56 @@ namespace xquotes_history {
      * \return вернет 0 в случае успешного завершения
      */
     template <typename T>
-    int read_binary_file(std::string file_name,
-            T &prices) {
+    int read_bin_file_u32_1x(std::string file_name, T &prices) {
         std::ifstream file(file_name, std::ios_base::binary);
         if(!file) return FILE_CANNOT_OPENED;
         for(int i = 0; i < MINUTES_IN_DAY; ++i) {
-            unsigned long value = 0;
-            file.read(reinterpret_cast<char *>(&value),sizeof (unsigned long));
-            prices[i] = convert_to_double(value);
+            prices[i] = read_u32(file);
+        }
+        file.close();
+        return OK;
+    }
+
+    /** \brief Читать бинарный файл котировок
+     * \param file_name имя файла
+     * \param timestamp временная метка начала дня
+     * \param candles массив свечей
+     * \return вернет 0 в случае успешного завершения
+     */
+    template <typename T>
+    int read_bin_file_u32_4x(const std::string file_name, unsigned long long timestamp, T &candles) {
+        std::ifstream file(file_name, std::ios_base::binary);
+        if(!file) return FILE_CANNOT_OPENED;
+        for(int i = 0; i < MINUTES_IN_DAY; ++i) {
+            candles[i].open = read_u32(file);
+            candles[i].high = read_u32(file);
+            candles[i].low = read_u32(file);
+            candles[i].close = read_u32(file);
+            candles[i].timestamp = timestamp;
+            timestamp += xtime::SECONDS_IN_MINUTE;
+        }
+        file.close();
+        return OK;
+    }
+
+    /** \brief Читать бинарный файл котировок
+     * \param file_name имя файла
+     * \param timestamp временная метка начала дня
+     * \param candles массив свечей
+     * \return вернет 0 в случае успешного завершения
+     */
+    template <typename T>
+    int read_bin_file_u32_5x(const std::string file_name, unsigned long long timestamp, T &candles) {
+        std::ifstream file(file_name, std::ios_base::binary);
+        if(!file) return FILE_CANNOT_OPENED;
+        for(int i = 0; i < MINUTES_IN_DAY; ++i) {
+            candles[i].open = read_u32(file);
+            candles[i].high = read_u32(file);
+            candles[i].low = read_u32(file);
+            candles[i].close = read_u32(file);
+            candles[i].volume = read_u32(file);
+            candles[i].timestamp = timestamp;
+            timestamp += xtime::SECONDS_IN_MINUTE;
         }
         file.close();
         return OK;
@@ -198,7 +337,7 @@ namespace xquotes_history {
             end_timestamp == std::numeric_limits<unsigned long long>::min()) return DATA_NOT_AVAILABLE;
         return OK;
     }
-//------------------------------------------------------------------------------
+
     /** \brief Найти первую и последнюю дату файлов
      * \param path директория с файлами исторических данных
      * \param file_extension расширение файла (например .hex или .zstd)

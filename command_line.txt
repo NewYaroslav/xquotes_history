@@ -1,0 +1,1 @@
+converter_csv_to_xquotes.exe path D:\_repoz\finam_history_quotes\xqhex\AUDCAD csv D:\_repoz\finam_history_quotes\csv\AUDCAD1.csv cet_to_gmt

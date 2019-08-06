@@ -25,8 +25,56 @@
 #define XQUOTES_COMMON_HPP_INCLUDED
 
 namespace xquotes_common {
+    typedef unsigned long key_t;
+    typedef unsigned long link_t;
+    typedef unsigned long price_t;
+
     const double PRICE_MULTIPLER = 100000.0d;   ///< множитель для 5-ти значных котировок
     const int MINUTES_IN_DAY = 1440;            ///< количество минут в одном дне
+
+    /** \brief Перевести double-цену в тип price_t
+     * \param price цена
+     * \return цена, представленная в price_t
+     */
+    inline price_t convert_to_uint(double price) {
+        return (price_t)((price * PRICE_MULTIPLER) + 0.5);
+    }
+
+    /** \brief Перевести price_t-цену в тип double
+     * \param price цена
+     * \return цена, представленная в double
+     */
+    inline double convert_to_double(price_t price) {
+        return (double)price / PRICE_MULTIPLER;
+    }
+
+    class Candle {
+    public:
+        double open = 0;
+        double high = 0;
+        double low = 0;
+        double close = 0;
+        double volume = 0;
+        unsigned long long timestamp = 0;
+        Candle() {};
+
+        Candle(double open, double high, double low, double close, unsigned long long timestamp) {
+            Candle::open = open;
+            Candle::high = high;
+            Candle::low = low;
+            Candle::close = close;
+            Candle::timestamp = timestamp;
+        }
+
+        Candle(double open, double high, double low, double close, double volume, unsigned long long timestamp) {
+            Candle::open = open;
+            Candle::high = high;
+            Candle::low = low;
+            Candle::close = close;
+            Candle::volume = volume;
+            Candle::timestamp = timestamp;
+        }
+    };
 
     /// Набор возможных состояний ошибки
     enum {
@@ -40,6 +88,13 @@ namespace xquotes_common {
         NOT_DECOMPRESS_FILE = -12,      ///< Файл нельзя разорхивировать
         DATA_SIZE_ERROR = -13,          ///< Ошибка размера данных
         FILE_CANNOT_OPENED = -15,       ///< Файл не может быть открыт
+        FILE_CANNOT_RENAMED = -16,       ///< Файл не может быть переименован
+        FILE_CANNOT_REMOVED = -17,       ///< Файл не может быть переименован
+        FILE_NOT_OPENED = -18,
+        NO_SUBFILES = -19,
+        SUBFILES_NOT_FOUND = -20,
+        SUBFILES_COMPRESSION_ERROR = -21,
+        SUBFILES_DECOMPRESSION_ERROR = -22,     ///< Ошибка декомпрессии подфайла
     };
 }
 

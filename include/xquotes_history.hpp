@@ -1,5 +1,5 @@
 /*
-* binary-cpp-api - Binary C++ API client
+* xquotes_history - C++ header-only library for working with historical quotes data
 *
 * Copyright (c) 2018 Elektro Yar. Email: git.electroyar@gmail.com
 *
@@ -21,65 +21,147 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
-#ifndef HISTORICALDATAEASY_HPP_INCLUDED
-#define HISTORICALDATAEASY_HPP_INCLUDED
-//------------------------------------------------------------------------------
-#include "ZstdEasy.hpp"
-#include "BinaryApiEasy.hpp"
-#include "BinaryApiCommon.hpp"
-//------------------------------------------------------------------------------
-#define HISTORICALDATAEASY_USE_THREAD 0
+#ifndef XQUOTES_HISTORY_HPP_INCLUDED
+#define XQUOTES_HISTORY_HPP_INCLUDED
 
-#if HISTORICALDATAEASY_USE_THREAD == 1
-#include <thread>
-#endif
-//------------------------------------------------------------------------------
-namespace HistoricalDataEasy
+#include "xquotes_files.hpp"
+
+namespace xquotes_history
 {
-        using namespace BinaryApiCommon;
-//------------------------------------------------------------------------------
-        /** \brief Класс для удобного использования исторических данных
-         */
-        class CurrencyHistory
-        {
-//------------------------------------------------------------------------------
-        private:
-                std::string dictionary_file_;
-                std::string path_;
-                std::string name_;
-                std::string file_extension_;
-                std::vector<double> prices;
-                std::vector<unsigned long long> times;
-                size_t pos = 0;
-                size_t last_pos = 0;
-//------------------------------------------------------------------------------
-                /** \brief Прочитать файл
-                 * \param timestamp временная метка
-                 * \return врнет состояние, 0 в случае успеха
-                 */
-                int read_file(unsigned long long timestamp)
-                {
-                        prices.clear();
-                        times.clear();
-                        int err = 0;
+    using namespace xquotes_common;
+    using namespace xquotes_files;
+    /** \brief Класс для удобного использования исторических данных
+     */
+    class CurrencyHistory : public Storage {
+    private:
+        std::string dictionary_file_;
+        std::string path_;
+        std::string name_;
+        std::string file_extension_;
 
-                        std::string file_name = path_ + "//" + BinaryApiEasy::get_file_name_from_date(timestamp);
-                        file_name += file_extension_;
-                        if(dictionary_file_ != "") {
-                                err = ZstdEasy::read_binary_quotes_compress_file(
-                                        file_name,
-                                        dictionary_file_,
-                                        prices,
-                                        times);
-                        } else {
-                                err = BinaryApiEasy::read_binary_quotes_file(
-                                        file_name,
-                                        prices,
-                                        times);
-                        }
-                        return err;
+        std::vector<std::array<Candle, MINUTES_IN_DAY>> prices;
+        size_t pos = 0;
+        size_t last_pos = 0;
+
+        int buffer_to_price(std::array<Candle, MINUTES_IN_DAY>& candles, const char* buffer, const unsigned long buffer_size, const xtime::timestamp_t timestamp) {
+            const unsigned long ONLY_CLOSING_PRICE_BUFFER_SIZE = MINUTES_IN_DAY * sizeof(price_t);
+            const unsigned long CANDLE_WITHOUT_VOLUME_BUFFER_SIZE = MINUTES_IN_DAY * 4 * sizeof(price_t);
+            const unsigned long CANDLE_WITH_VOLUME = MINUTES_IN_DAY * 5 * sizeof(price_t);
+            candles[i].timestamp = timestamp;
+            for(int i = 1; i < MINUTES_IN_DAY; ++i) {
+                candles[i].timestamp = candles[i - 1].timestamp + xtime::SECONDS_IN_MINUTE;
+            }
+            if(buffer_size == ONLY_CLOSING_PRICE_BUFFER_SIZE) {
+                for(int i = 0; i < MINUTES_IN_DAY; ++i) {
+                    candles[i].close = convert_to_double(((price_t*)buffer)[i]);
                 }
-//------------------------------------------------------------------------------
+            } else
+            if(buffer_size == CANDLE_WITHOUT_VOLUME_BUFFER_SIZE) {
+                const BUFFER_SAMPLE_SIZE = 4;
+                for(int i = 0; i < MINUTES_IN_DAY; ++i) {
+                    int indx = i * BUFFER_SAMPLE_SIZE;
+                    candles[i].open = convert_to_double(((price_t*)buffer)[indx + 0]);
+                    candles[i].high = convert_to_double(((price_t*)buffer)[indx + 1]);
+                    candles[i].low = convert_to_double(((price_t*)buffer)[indx + 2]);
+                    candles[i].close = convert_to_double(((price_t*)buffer)[indx + 3]);
+                }
+            }
+            if(buffer_size == CANDLE_WITH_VOLUME) {
+                const BUFFER_SAMPLE_SIZE = 5;
+                for(int i = 0; i < MINUTES_IN_DAY; ++i) {
+                    int indx = i * BUFFER_SAMPLE_SIZE;
+                    candles[i].open = convert_to_double(((price_t*)buffer)[indx + 0]);
+                    candles[i].high = convert_to_double(((price_t*)buffer)[indx + 1]);
+                    candles[i].low = convert_to_double(((price_t*)buffer)[indx + 2]);
+                    candles[i].close = convert_to_double(((price_t*)buffer)[indx + 3]);
+                    candles[i].volume = convert_to_double(((price_t*)buffer)[indx + 4]);
+                }
+            } else {
+                err = INVALID_ARRAY_LENGH;
+            }
+            return err;
+        }
+
+        int read_data(std::array<Candle, MINUTES_IN_DAY>& candles, const xtime::timestamp_t timestamp) {
+            int err = 0;
+            char *buffer = NULL;
+            unsigned long buffer_size = 0;
+            if(dictionary_file_ != "") err = read_compressed_subfile(xtime::get_day(timestamp), buffer, buffer_size);
+            else err = read_subfile(xtime::get_day(timestamp), buffer, buffer_size);
+            if(err != OK) {
+                delete buffer;
+                return err;
+            }
+            err = buffer_to_price(candles, buffer, buffer_size, timestamp);
+            delete buffer;
+            return err;
+        }
+
+        /** \brief Прочитать данные
+         * \param start_timestamp временная метка первого дня котировок
+         * \param stop_timestamp временная метка последнего дня котировок
+         * \return врнет состояние, 0 в случае успеха
+         */
+        int read_data(xtime::timestamp_t start_timestamp, xtime::timestamp_t stop_timestamp) {
+            if(start_timestamp > stop_timestamp) std::swap(start_timestamp, stop_timestamp);
+            int days = xtime::get_day(stop_timestamp) - xtime::get_day(start_timestamp) + 1;
+            if(prices.size() == 0) {
+                // в данном случае просто загружаем данные
+                for(xtime::timestamp_t t = start_timestamp, int day = 0; t <= stop_timestamp; t += xtime::SECONDS_IN_DAY, day++) {
+                    prices.resize(prices.size() + 1);
+                    int err = read_data(prices[prices.size() - 1], t);
+                    if(err != OK) {
+                        prices.erase(prices.begin() + prices.size() - 1);
+                    }
+                }
+            } else {
+                // сначала составим список уже загруженных данных
+                std::vector<xtime::timestamp_t> check_timestamp;
+                for(int day = 0; day < days; day++) {
+                    bool is_rewrite = true;
+                    for(xtime::timestamp_t t = start_timestamp; t <= stop_timestamp; t += xtime::SECONDS_IN_DAY) {
+                        if(std::binary_search(check_timestamp.begin(), check_timestamp.end(), t)) continue;
+                        if(prices[day][0].timestamp == t) {
+                            auto check_timestamp_it = std::upper_bound(check_timestamp.begin(),check_timestamp.end(), t);
+                            check_timestamp.insert(check_timestamp_it, t);
+                        }
+                    }
+                }
+                // удаляем лишние данные
+                size_t prices_indx = 0;
+                while(prices_indx < prices.size()) {
+                    if(!std::binary_search(check_timestamp.begin(), check_timestamp.end(), prices[prices_indx][0].timestamp)) {
+                        prices.erase(prices.begin() + prices_indx);
+                        continue;
+                    }
+                    prices_indx++;
+                }
+                // далее загрузим недостающие данные
+                for(xtime::timestamp_t t = start_timestamp; t <= stop_timestamp; t += xtime::SECONDS_IN_DAY) {
+                    if(std::binary_search(check_timestamp.begin(), check_timestamp.end(), t)) continue;
+                    prices.resize(prices.size() + 1);
+                    int err = read_data(prices[prices.size() - 1], t);
+                    if(err != OK) {
+                        prices.erase(prices.begin() + prices.size() - 1);
+                    }
+                }
+            }
+
+            int err = 0;
+            char *buffer = NULL;
+            unsigned long buffer_size = 0;
+            if(dictionary_file_ != "") err = read_compressed_subfile(timestamp, buffer, buffer_size);
+            else err = read_subfile(timestamp, buffer, buffer_size);
+            if(err != OK) {
+                delete buffer;
+                return err;
+            }
+
+            err = buffer_to_price(buffer,)
+            delete buffer;
+            return err;
+        }
+
                 /** \brief Добавить данные из файла
                  * \param timestamp временная метка в имени файла
                  * \return состояние ошибки
@@ -145,174 +227,166 @@ namespace HistoricalDataEasy
                 }
 //------------------------------------------------------------------------------
         public:
-//------------------------------------------------------------------------------
-                /** \brief Инициализировать класс
-                 * \param path директория с файлами исторических данных
-                 * \param dictionary_file файл словаря (если указано "", то считываются несжатые файлы)
-                 */
-                CurrencyHistory(std::string path, std::string dictionary_file = "") :
-                dictionary_file_(dictionary_file), path_(path)
-                {
-                        std::vector<std::string> element;
-                        bf::parse_path(path, element);
-                        name_ = element.back();
-                        if(dictionary_file != "") {
-                                file_extension_ = ".zstd";
-                        } else {
-                                file_extension_ = ".hex";
-                        }
-                }
-//------------------------------------------------------------------------------
-                /** \brief Получить имя валютной пары
-                 * \return имя валютной пары
-                 */
-                inline std::string get_name()
-                {
-                        return name_;
-                }
-//------------------------------------------------------------------------------
-                /** \brief Получить директорию файлов
-                 * \return директория файлов
-                 */
-                inline std::string get_path()
-                {
-                        return path_;
-                }
-//------------------------------------------------------------------------------
-                /** \brief Получить расширение файла
-                 * \return расширение файла
-                 */
-                inline std::string get_file_extension()
-                {
-                        return file_extension_;
-                }
-//------------------------------------------------------------------------------
-                /** \brief Получить данные массива цен
-                 * \return Массив цен
-                 */
-                inline std::vector<double> get_array_prices()
-                {
-                        return prices;
-                }
-//------------------------------------------------------------------------------
-                /** \brief Получить данные массива временных меток
-                 * \return Массив временных меток
-                 */
-                inline std::vector<unsigned long long> get_array_times()
-                {
-                        return times;
-                }
-//------------------------------------------------------------------------------
-                /** \brief Получить данные цены тика или цены закрытия свечи на указанной временной метке
-                 * \param price цена на указанной временной метке
-                 * \param timestamp временная метка
-                 * \return состояние огибки, 0 если все в порядке
-                 */
-                int get_price(double& price, unsigned long long timestamp)
-                {
 
-                        if(times.size() > last_pos && times[last_pos] == timestamp) {
-                                price = prices[last_pos];
-                                last_pos++;
-                                return OK;
-                        } else
-                        if(times.size() > 0 &&
-                                timestamp >= times[0] &&
-                                timestamp <= times.back()) {
-                                // если данные находятся в пределах загруженных данных
-                                auto lower = std::lower_bound(times.cbegin(), times.cend(), timestamp);
-                                if(lower == times.end())
-                                        return DATA_NOT_AVAILABLE;
-                                last_pos = std::distance(times.cbegin(), lower);
-                                price = prices[last_pos];
-                                last_pos++;
-                                return OK;
-                        } else {
-                                int err = read_file(timestamp);
-                                if(err != ZstdEasy::OK)
-                                        return err;
+        /** \brief Инициализировать класс
+         * \param path директория с файлами исторических данных
+         * \param dictionary_file файл словаря (если указано "", то считываются несжатые файлы)
+         */
+        CurrencyHistory(std::string path, std::string dictionary_file = "") : Storage(path, dictionary_file),
+            dictionary_file_(dictionary_file), path_(path) {
+            std::vector<std::string> element;
+            bf::parse_path(path, element);
+            name_ = element.back();
+            if(dictionary_file != "") {
+                file_extension_ = ".zstd";
+            } else {
+                file_extension_ = ".hex";
+            }
+        }
 
-                                auto lower = std::lower_bound(times.cbegin(), times.cend(), timestamp);
-                                if(lower == times.end())
-                                        return DATA_NOT_AVAILABLE;
-                                last_pos = std::distance(times.cbegin(), lower);
-                                price = prices[last_pos];
-                                last_pos++;
-                                return OK;
-                        }
-                }
+        /** \brief Получить имя валютной пары
+         * \return имя валютной пары
+         */
+        inline std::string get_name() {
+            return name_;
+        }
+
+        /** \brief Получить директорию файлов
+         * \return директория файлов
+         */
+        inline std::string get_path() {
+            return path_;
+        }
+
+        /** \brief Получить расширение файла
+         * \return расширение файла
+         */
+        inline std::string get_file_extension() {
+            return file_extension_;
+        }
+
+        /** \brief Получить данные массива цен
+         * \return Массив цен
+         */
+        inline std::vector<double> get_array_prices() {
+            return prices;
+        }
+
+        /** \brief Получить данные массива временных меток
+         * \return Массив временных меток
+         */
+        inline std::vector<unsigned long long> get_array_times() {
+            return times;
+        }
+
+        /** \brief Получить данные цены тика или цены закрытия свечи на указанной временной метке
+         * \param price цена на указанной временной метке
+         * \param timestamp временная метка
+         * \return состояние огибки, 0 если все в порядке
+         */
+        int get_price(double& price, unsigned long long timestamp) {
+            if(times.size() > last_pos && times[last_pos] == timestamp) {
+                    price = prices[last_pos];
+                    last_pos++;
+                    return OK;
+            } else
+            if(times.size() > 0 &&
+                    timestamp >= times[0] &&
+                    timestamp <= times.back()) {
+                    // если данные находятся в пределах загруженных данных
+                    auto lower = std::lower_bound(times.cbegin(), times.cend(), timestamp);
+                    if(lower == times.end())
+                            return DATA_NOT_AVAILABLE;
+                    last_pos = std::distance(times.cbegin(), lower);
+                    price = prices[last_pos];
+                    last_pos++;
+                    return OK;
+            } else {
+                    int err = read_file(timestamp);
+                    if(err != ZstdEasy::OK)
+                            return err;
+
+                    auto lower = std::lower_bound(times.cbegin(), times.cend(), timestamp);
+                    if(lower == times.end())
+                            return DATA_NOT_AVAILABLE;
+                    last_pos = std::distance(times.cbegin(), lower);
+                    price = prices[last_pos];
+                    last_pos++;
+                    return OK;
+            }
+        }
 //------------------------------------------------------------------------------
-                /** \brief Получить данные цен тиков или цен закрытия свечей
-                 * Внимание! Для цен закрытия свечей указывается временная метка НАЧАЛА свечи
-                 * \param prices цены тиков или цены закрытия свечей
-                 * \param data_size количество данных для записи в prices
-                 * \param step шаг времени
-                 * \param timestamp временная метка
-                 * \return состояние огибки, 0 если все в порядке
-                 */
-                int get_prices(std::vector<double>& prices, int data_size, int step, unsigned long long timestamp)
-                {
-                        unsigned long long& t1 = timestamp;
-                        unsigned long long t2 = timestamp + data_size * step;
+        /** \brief Получить данные цен тиков или цен закрытия свечей
+         * Внимание! Для цен закрытия свечей указывается временная метка НАЧАЛА свечи
+         * \param prices цены тиков или цены закрытия свечей
+         * \param data_size количество данных для записи в prices
+         * \param step шаг времени
+         * \param timestamp временная метка
+         * \return состояние огибки, 0 если все в порядке
+         */
+        int get_prices(std::vector<double>& prices, int data_size, int step, unsigned long long timestamp)
+        {
+                unsigned long long& t1 = timestamp;
+                unsigned long long t2 = timestamp + data_size * step;
 
-                        while(true) {
-                                if(times.size() > 0) {
-                                        if(t1 >= times[0] && t2 <= times.back()) {
-                                                // если данные находятся в пределах загруженных данных
-                                                auto lower = std::lower_bound(times.cbegin(), times.cend(), timestamp);
-                                                if(lower == times.end())
-                                                        return NO_TIMESTAMP;
-                                                size_t indx = std::distance(times.cbegin(), lower);
-                                                prices.clear();
-                                                prices.reserve(data_size);
-                                                unsigned long long t0 = t1;
-                                                while(true) {
-                                                        unsigned long long current_time = times[indx];
-                                                        if(t0 == current_time) { // временная метка существует
-                                                                prices.push_back(prices[indx]); // добавляем цену
-                                                                if(prices.size() == (size_t)data_size) // если буфер заполнен, выходим
-                                                                        return OK;
-                                                                t0 += step; // иначе ставим следующую временную метку
-                                                                indx++; // увеличиваем позицию в массивах
-                                                                if(indx >= times.size())
-                                                                        return NO_TIMESTAMP;
-                                                        } else
-                                                        if(t0 > current_time) {
-                                                                indx++; // увеличиваем позицию в массивах
-                                                                if(indx >= times.size())
-                                                                        return NO_TIMESTAMP;
-                                                        } else {
-                                                                // временная метка отсутсвует, выходим
+                while(true) {
+                        if(times.size() > 0) {
+                                if(t1 >= times[0] && t2 <= times.back()) {
+                                        // если данные находятся в пределах загруженных данных
+                                        auto lower = std::lower_bound(times.cbegin(), times.cend(), timestamp);
+                                        if(lower == times.end())
+                                                return NO_TIMESTAMP;
+                                        size_t indx = std::distance(times.cbegin(), lower);
+                                        prices.clear();
+                                        prices.reserve(data_size);
+                                        unsigned long long t0 = t1;
+                                        while(true) {
+                                                unsigned long long current_time = times[indx];
+                                                if(t0 == current_time) { // временная метка существует
+                                                        prices.push_back(prices[indx]); // добавляем цену
+                                                        if(prices.size() == (size_t)data_size) // если буфер заполнен, выходим
+                                                                return OK;
+                                                        t0 += step; // иначе ставим следующую временную метку
+                                                        indx++; // увеличиваем позицию в массивах
+                                                        if(indx >= times.size())
                                                                 return NO_TIMESTAMP;
-                                                        }
+                                                } else
+                                                if(t0 > current_time) {
+                                                        indx++; // увеличиваем позицию в массивах
+                                                        if(indx >= times.size())
+                                                                return NO_TIMESTAMP;
+                                                } else {
+                                                        // временная метка отсутсвует, выходим
+                                                        return NO_TIMESTAMP;
                                                 }
-                                                return DATA_NOT_AVAILABLE;
-                                        } else
-                                        if(t1 >= times[0] && t2 > times.back()) {
-                                                int err = add_data_from_file(times.back() + xtime::SECONDS_IN_DAY);
-                                                if(err != OK)
-                                                        return err;
-                                        } else
-                                        if(t1 < times[0] && t2 <= times.back()) {
-                                                int err = add_data_from_file(times[0] - xtime::SECONDS_IN_DAY);
-                                                if(err != OK)
-                                                        return err;
-                                        } else
-                                        if(t1 < times[0] && t2 > times.back()) {
-                                                int err = add_data_from_file(times[0] - xtime::SECONDS_IN_DAY);
-                                                if(err != OK)
-                                                        return err;
-                                                err = add_data_from_file(times.back() + xtime::SECONDS_IN_DAY);
-                                                if(err != OK)
-                                                        return err;
-                                        } // if
-                                } else {
-                                        int err = read_file((t1 + t2)/2);
-                                        if(err != ZstdEasy::OK)
+                                        }
+                                        return DATA_NOT_AVAILABLE;
+                                } else
+                                if(t1 >= times[0] && t2 > times.back()) {
+                                        int err = add_data_from_file(times.back() + xtime::SECONDS_IN_DAY);
+                                        if(err != OK)
+                                                return err;
+                                } else
+                                if(t1 < times[0] && t2 <= times.back()) {
+                                        int err = add_data_from_file(times[0] - xtime::SECONDS_IN_DAY);
+                                        if(err != OK)
+                                                return err;
+                                } else
+                                if(t1 < times[0] && t2 > times.back()) {
+                                        int err = add_data_from_file(times[0] - xtime::SECONDS_IN_DAY);
+                                        if(err != OK)
+                                                return err;
+                                        err = add_data_from_file(times.back() + xtime::SECONDS_IN_DAY);
+                                        if(err != OK)
                                                 return err;
                                 } // if
-                        } // while
-                }
+                        } else {
+                                int err = read_file((t1 + t2)/2);
+                                if(err != ZstdEasy::OK)
+                                        return err;
+                        } // if
+                } // while
+        }
 //------------------------------------------------------------------------------
                 /** \brief Проверить бинарный опцион
                  * \param state состояние бинарного опциона (уданая сделка WIN = 1, убыточная LOSS = -1 и нейтральная 0)
