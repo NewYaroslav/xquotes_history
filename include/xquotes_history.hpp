@@ -24,40 +24,133 @@
 #ifndef XQUOTES_HISTORY_HPP_INCLUDED
 #define XQUOTES_HISTORY_HPP_INCLUDED
 
-#include "xquotes_files.hpp"
+#include "xquotes_storage.hpp"
+#include <array>
 
-namespace xquotes_history
-{
+namespace xquotes_history {
     using namespace xquotes_common;
-    using namespace xquotes_files;
+    using namespace xquotes_storage;
+
     /** \brief Класс для удобного использования исторических данных
+     * Данный класс имеет оптимизированный для поминутного чтения данных метод - get_candle
+     * Оптимизация метода get_candle заключается в том, что поиск следующей цены начинается только в случае,
+     * если метка времени следующей цены не совпала с запрашиваемой меткой времени
+     * Метод find_candle является по сути аналогом get_candle, но он всегда ищет цену
      */
-    class CurrencyHistory : public Storage {
+    class QuotesHistory : public Storage {
     private:
-        std::string dictionary_file_;
+        typedef std::array<Candle, MINUTES_IN_DAY> candles_array_t;
+
+        bool is_use_dictionary = false;
         std::string path_;
         std::string name_;
         std::string file_extension_;
 
-        std::vector<std::array<Candle, MINUTES_IN_DAY>> prices;
-        size_t pos = 0;
-        size_t last_pos = 0;
+        std::vector<candles_array_t> candles_array_days; /**< Котировки в виде минутных свечей, отсортирован по дням */
 
-        int buffer_to_price(std::array<Candle, MINUTES_IN_DAY>& candles, const char* buffer, const unsigned long buffer_size, const xtime::timestamp_t timestamp) {
-            const unsigned long ONLY_CLOSING_PRICE_BUFFER_SIZE = MINUTES_IN_DAY * sizeof(price_t);
-            const unsigned long CANDLE_WITHOUT_VOLUME_BUFFER_SIZE = MINUTES_IN_DAY * 4 * sizeof(price_t);
-            const unsigned long CANDLE_WITH_VOLUME = MINUTES_IN_DAY * 5 * sizeof(price_t);
-            candles[i].timestamp = timestamp;
+        /** \brief Получить метку времени начала дня массива цен по индексу элемента
+         * Данный метод нужен для внутреннего использования
+         * \param indx индекс элемента массива цен
+         * \return метка времени начала дня
+         */
+        inline xtime::timestamp_t get_prices_timestamp(const int indx) {
+            return candles_array_days[indx][0].timestamp;
+        }
+
+        /** \brief Сортировка массивов минутных свечей
+         * Данный метод нужен для внутреннего использования
+         */
+        void sort_candles_array_days() {
+            if(!std::is_sorted(candles_array_days.begin(), candles_array_days.end(), [](const candles_array_t &a, const candles_array_t &b) {
+                        return a[0].timestamp < b[0].timestamp;
+                    })) {
+                std::sort(candles_array_days.begin(), candles_array_days.end(), [](const candles_array_t &a, const candles_array_t &b) {
+                    return a[0].timestamp < b[0].timestamp;
+                });;
+            }
+        }
+
+        /** \brief Найти массив свечей за конкретный день
+         * Метод ищет массив свечей конкретного дня по метке времени
+         * Данный метод нужен для внутреннего использования
+         * \param timestamp метка времени (должна быть всегда в начале дня!)
+         * \return указатель на массив свечей или NULL, если даных нет в списке
+         */
+        std::vector<candles_array_t>::iterator find_candles_array(const xtime::timestamp_t timestamp) {
+            if(candles_array_days.size() == 0) return candles_array_days.end();
+            auto prices_it = std::lower_bound(
+                candles_array_days.begin(),
+                candles_array_days.end(),
+                timestamp,
+                [](const candles_array_t &lhs, const xtime::timestamp_t &timestamp) {
+                return lhs[0].timestamp < timestamp;
+            });
+            if(prices_it == candles_array_days.end()) {
+                return candles_array_days.end();
+            } else
+            if(prices_it->at(0).timestamp == timestamp) {
+                //return &(*prices_it);
+                return prices_it;
+            }
+            return candles_array_days.end();
+        }
+
+        int indent_day_up = 1;          /**< Отступ в будущее в днях от текущей метки времени */
+        int indent_day_dn = 1;          /**< Отступ в прошлое в днях от текущей метки времени */
+
+        int indx_forecast_day = 0;      /**< Прогноз индекса (дня) в массиве candles_array_days */
+        int indx_forecast_minute = 0;   /**< Прогноз индекса в массиве свечей candles_array_days[indx_forecast_day] */
+
+        /** \brief Сделать следующий прогноз для идексов массива свечей
+         * Данный метод нужен для внутреннего использования
+         */
+        inline void make_next_candles_forecast() {
+            indx_forecast_minute++;
+            if(indx_forecast_minute >= MINUTES_IN_DAY) {
+                indx_forecast_minute = 0;
+                if(indx_forecast_day >= (candles_array_days.size() - 1)) return;
+                indx_forecast_day++;
+            }
+        }
+
+        /** \brief Установить начальное положение идексов массива цен
+         * Данный метод нужен для внутреннего использования
+         * \param timestamp временная метка (должна быть всегда в начале дня!)
+         * \param minute_day минута дня
+         * \return вернет true если цена была найдена
+         */
+        inline bool set_start_candles_forecast(const xtime::timestamp_t timestamp, const int minute_day) {
+            auto found_candles_array = find_candles_array(timestamp);
+            if(found_candles_array == candles_array_days.end()) return false;
+            indx_forecast_day = found_candles_array - candles_array_days.begin();
+            indx_forecast_minute = minute_day;
+            return false;
+        }
+
+        /** \brief Заполнить метки времени массива свечей
+         * Данный метод нужен для внутреннего использования
+         */
+        void fill_timestamp(std::array<Candle, MINUTES_IN_DAY>& candles, const xtime::timestamp_t timestamp) {
+            candles[0].timestamp = timestamp;
             for(int i = 1; i < MINUTES_IN_DAY; ++i) {
                 candles[i].timestamp = candles[i - 1].timestamp + xtime::SECONDS_IN_MINUTE;
             }
+        }
+
+        /** \brief Конвертировать буфер в массив свечей
+         * Данный метод нужен для внутреннего использования
+         */
+        int convert_buffer_to_candles(std::array<Candle, MINUTES_IN_DAY>& candles, const char* buffer, const unsigned long buffer_size) {
+            const unsigned long ONLY_CLOSING_PRICE_BUFFER_SIZE = MINUTES_IN_DAY * sizeof(price_t);
+            const unsigned long CANDLE_WITHOUT_VOLUME_BUFFER_SIZE = MINUTES_IN_DAY * 4 * sizeof(price_t);
+            const unsigned long CANDLE_WITH_VOLUME = MINUTES_IN_DAY * 5 * sizeof(price_t);
             if(buffer_size == ONLY_CLOSING_PRICE_BUFFER_SIZE) {
                 for(int i = 0; i < MINUTES_IN_DAY; ++i) {
                     candles[i].close = convert_to_double(((price_t*)buffer)[i]);
                 }
             } else
             if(buffer_size == CANDLE_WITHOUT_VOLUME_BUFFER_SIZE) {
-                const BUFFER_SAMPLE_SIZE = 4;
+                const int BUFFER_SAMPLE_SIZE = 4;
                 for(int i = 0; i < MINUTES_IN_DAY; ++i) {
                     int indx = i * BUFFER_SAMPLE_SIZE;
                     candles[i].open = convert_to_double(((price_t*)buffer)[indx + 0]);
@@ -67,7 +160,7 @@ namespace xquotes_history
                 }
             }
             if(buffer_size == CANDLE_WITH_VOLUME) {
-                const BUFFER_SAMPLE_SIZE = 5;
+                const int BUFFER_SAMPLE_SIZE = 5;
                 for(int i = 0; i < MINUTES_IN_DAY; ++i) {
                     int indx = i * BUFFER_SAMPLE_SIZE;
                     candles[i].open = convert_to_double(((price_t*)buffer)[indx + 0]);
@@ -77,154 +170,101 @@ namespace xquotes_history
                     candles[i].volume = convert_to_double(((price_t*)buffer)[indx + 4]);
                 }
             } else {
-                err = INVALID_ARRAY_LENGH;
+                return INVALID_ARRAY_LENGH;
             }
-            return err;
+            return OK;
         }
 
-        int read_data(std::array<Candle, MINUTES_IN_DAY>& candles, const xtime::timestamp_t timestamp) {
+        /** \brief Прочитать свечи
+         * Данный метод нужен для внутреннего использования
+         * \param candles массив свечей за день
+         * \param key ключ, это день с начала unix времени
+         * \param timestamp метка времени (должна быть всегда в начале дня!)
+         * \return состояние ошибки
+         */
+        int read_candles(std::array<Candle, MINUTES_IN_DAY>& candles, const key_t key, const xtime::timestamp_t timestamp) {
             int err = 0;
             char *buffer = NULL;
             unsigned long buffer_size = 0;
-            if(dictionary_file_ != "") err = read_compressed_subfile(xtime::get_day(timestamp), buffer, buffer_size);
-            else err = read_subfile(xtime::get_day(timestamp), buffer, buffer_size);
+            fill_timestamp(candles, timestamp);
+            if(is_use_dictionary) err = read_compressed_subfile(key, buffer, buffer_size);
+            else err = read_subfile(key, buffer, buffer_size);
             if(err != OK) {
                 delete buffer;
                 return err;
             }
-            err = buffer_to_price(candles, buffer, buffer_size, timestamp);
+            err = convert_buffer_to_candles(candles, buffer, buffer_size);
             delete buffer;
             return err;
         }
 
         /** \brief Прочитать данные
-         * \param start_timestamp временная метка первого дня котировок
-         * \param stop_timestamp временная метка последнего дня котировок
-         * \return врнет состояние, 0 в случае успеха
+         * \param timestamp временная метка требуемого дня котировоки (это обязательно начало дня!)
+         * \param indent_dn отступ от временная метки в днях на уменьшение времени
+         * \param indent_up отступ от временная метки в днях на увеличение времени
          */
-        int read_data(xtime::timestamp_t start_timestamp, xtime::timestamp_t stop_timestamp) {
-            if(start_timestamp > stop_timestamp) std::swap(start_timestamp, stop_timestamp);
-            int days = xtime::get_day(stop_timestamp) - xtime::get_day(start_timestamp) + 1;
-            if(prices.size() == 0) {
+        void read_candles_data(const xtime::timestamp_t timestamp, const int indent_dn, const int indent_up) {
+            int num_days = indent_dn + indent_up + 1;
+            xtime::timestamp_t start_indx_timestamp = timestamp - indent_dn * xtime::SECONDS_IN_DAY;
+            int start_indx_day = xtime::get_day(start_indx_timestamp);
+            if(candles_array_days.size() == 0) {
                 // в данном случае просто загружаем данные
-                for(xtime::timestamp_t t = start_timestamp, int day = 0; t <= stop_timestamp; t += xtime::SECONDS_IN_DAY, day++) {
-                    prices.resize(prices.size() + 1);
-                    int err = read_data(prices[prices.size() - 1], t);
-                    if(err != OK) {
-                        prices.erase(prices.begin() + prices.size() - 1);
-                    }
+                candles_array_days.resize(num_days);
+                int indx_day = start_indx_day;
+                xtime::timestamp_t indx_timestamp = start_indx_timestamp;
+                for(int i = 0; i < num_days; ++i, ++indx_day, indx_timestamp += xtime::SECONDS_IN_DAY) {
+                    read_candles(candles_array_days[i], indx_day, indx_timestamp);
                 }
             } else {
                 // сначала составим список уже загруженных данных
                 std::vector<xtime::timestamp_t> check_timestamp;
-                for(int day = 0; day < days; day++) {
+                for(size_t j = 0; j < candles_array_days.size(); ++j) {
                     bool is_rewrite = true;
-                    for(xtime::timestamp_t t = start_timestamp; t <= stop_timestamp; t += xtime::SECONDS_IN_DAY) {
-                        if(std::binary_search(check_timestamp.begin(), check_timestamp.end(), t)) continue;
-                        if(prices[day][0].timestamp == t) {
-                            auto check_timestamp_it = std::upper_bound(check_timestamp.begin(),check_timestamp.end(), t);
-                            check_timestamp.insert(check_timestamp_it, t);
+                    int indx_day = start_indx_day;
+                    xtime::timestamp_t indx_timestamp = start_indx_timestamp;
+                    for(int i = 0; i < num_days; ++i, ++indx_day, indx_timestamp += xtime::SECONDS_IN_DAY) {
+                        if(std::binary_search(check_timestamp.begin(), check_timestamp.end(), indx_timestamp)) continue;
+                        if(get_prices_timestamp(j) == indx_timestamp) {
+                            auto check_timestamp_it = std::upper_bound(check_timestamp.begin(),check_timestamp.end(), indx_timestamp);
+                            check_timestamp.insert(check_timestamp_it, indx_timestamp);
                         }
                     }
                 }
                 // удаляем лишние данные
-                size_t prices_indx = 0;
-                while(prices_indx < prices.size()) {
-                    if(!std::binary_search(check_timestamp.begin(), check_timestamp.end(), prices[prices_indx][0].timestamp)) {
-                        prices.erase(prices.begin() + prices_indx);
+                size_t indx_prices = 0;
+                while(indx_prices < candles_array_days.size()) {
+                    if(!std::binary_search(check_timestamp.begin(), check_timestamp.end(), candles_array_days[indx_prices][0].timestamp)) {
+                        candles_array_days.erase(candles_array_days.begin() + indx_prices);
                         continue;
                     }
-                    prices_indx++;
+                    indx_prices++;
                 }
                 // далее загрузим недостающие данные
-                for(xtime::timestamp_t t = start_timestamp; t <= stop_timestamp; t += xtime::SECONDS_IN_DAY) {
-                    if(std::binary_search(check_timestamp.begin(), check_timestamp.end(), t)) continue;
-                    prices.resize(prices.size() + 1);
-                    int err = read_data(prices[prices.size() - 1], t);
-                    if(err != OK) {
-                        prices.erase(prices.begin() + prices.size() - 1);
-                    }
+                int indx_day = start_indx_day;
+                xtime::timestamp_t indx_timestamp = start_indx_timestamp;
+                for(int i = 0; i < num_days; ++i, ++indx_day, indx_timestamp += xtime::SECONDS_IN_DAY) {
+                    if(std::binary_search(check_timestamp.begin(), check_timestamp.end(), indx_timestamp)) continue;
+                    candles_array_days.resize(candles_array_days.size() + 1);
+                    read_candles(candles_array_days[candles_array_days.size() - 1], indx_day, indx_timestamp);
                 }
             }
-
-            int err = 0;
-            char *buffer = NULL;
-            unsigned long buffer_size = 0;
-            if(dictionary_file_ != "") err = read_compressed_subfile(timestamp, buffer, buffer_size);
-            else err = read_subfile(timestamp, buffer, buffer_size);
-            if(err != OK) {
-                delete buffer;
-                return err;
-            }
-
-            err = buffer_to_price(buffer,)
-            delete buffer;
-            return err;
+            sort_candles_array_days();
         }
 
-                /** \brief Добавить данные из файла
-                 * \param timestamp временная метка в имени файла
-                 * \return состояние ошибки
-                 */
-                int add_data_from_file(unsigned long long timestamp)
-                {
-                        std::vector<double> _prices;
-                        std::vector<unsigned long long> _times;
-                        int err = 0;
-                        std::string file_name = path_ + "//" + BinaryApiEasy::get_file_name_from_date(timestamp);
-                        file_name += file_extension_;
-                        if(dictionary_file_ != "") {
-                                err = ZstdEasy::read_binary_quotes_compress_file(
-                                        file_name,
-                                        dictionary_file_,
-                                        _prices,
-                                        _times);
-                        } else {
-                                err = BinaryApiEasy::read_binary_quotes_file(
-                                        file_name,
-                                        _prices,
-                                        _times);
-                        }
-                        if(err == OK && _times.size() > 0) {
-                                // добавляем проверку адекватности времени
-                                if(_times.back() - _times[0] > xtime::SECONDS_IN_DAY) {
-                                        std::cout << "file error: " << file_name << std::endl;
-                                        std::cout << "_times size " << _times.size() << std::endl;
-                                        std::cout << "_times[0] " << _times[0] << std::endl;
-                                        std::cout << "_times.back() " << _times.back() << std::endl;
-                                        if(times.size() > 0) {
-                                                std::cout << "times[0] " << times[0] << std::endl;
-                                                std::cout << "times.back() " << times.back() << std::endl;
-                                        }
-                                        int temp;
-                                        std::cin >> temp;
-                                        std::cout << temp << std::endl;
-                                        return DATA_NOT_AVAILABLE;
-                                }
-                                if(times.size() == 0) {
-                                        // если загруженных данных нет
-                                        times = _times;
-                                        prices = _prices;
-                                } else {
-                                        if(_times.back() < times[0]) {
-                                                // если новые данные находятся по дате раньше ранее загруженных данных
-                                                _times.insert(_times.end(), times.begin(), times.end());
-                                                _prices.insert(_prices.end(), prices.begin(), prices.end());
-                                                times = _times;
-                                                prices = _prices;
-                                        } else
-                                        if(_times[0] > times.back()) {
-                                                // если новые данные хаодятся по дате после ранее загруженных данных
-                                                times.insert(times.end(), _times.begin(), _times.end());
-                                                prices.insert(prices.end(), _prices.begin(), _prices.end());
-                                        } else {
-                                                return DATA_NOT_AVAILABLE;
-                                        }
-                                }
-                                return OK;
-                        }
-                        return DATA_NOT_AVAILABLE;
-                }
+        template <typename T>
+        int find_candle(T &candle, const xtime::timestamp_t timestamp) {
+            int minute_day = xtime::get_minute_day(timestamp);
+            const xtime::timestamp_t timestamp_start_day = xtime::get_start_day(timestamp);
+            auto found_candles_array = find_candles_array(timestamp);
+            if(found_candles_array == candles_array_days.end()) {
+                read_candles_data(timestamp_start_day, indent_day_dn, indent_day_up);
+                found_candles_array = find_candles_array(timestamp);
+                if(found_candles_array == candles_array_days.end()) return STRANGE_PROGRAM_BEHAVIOR;
+            }
+            int indx_day = found_candles_array - candles_array_days.begin();
+            candle = candles_array_days[indx_day][minute_day];
+            return candle.close != 0.0 ? OK : DATA_NOT_AVAILABLE;
+        }
 //------------------------------------------------------------------------------
         public:
 
@@ -232,8 +272,8 @@ namespace xquotes_history
          * \param path директория с файлами исторических данных
          * \param dictionary_file файл словаря (если указано "", то считываются несжатые файлы)
          */
-        CurrencyHistory(std::string path, std::string dictionary_file = "") : Storage(path, dictionary_file),
-            dictionary_file_(dictionary_file), path_(path) {
+        QuotesHistory(const std::string path, const std::string dictionary_file = "") :
+                Storage(path, dictionary_file), path_(path) {
             std::vector<std::string> element;
             bf::parse_path(path, element);
             name_ = element.back();
@@ -242,6 +282,105 @@ namespace xquotes_history
             } else {
                 file_extension_ = ".hex";
             }
+        }
+
+        int write_candles(
+                std::array<Candle, MINUTES_IN_DAY>& candles,
+                const xtime::timestamp_t timestamp,
+                const int price_type = ALL_PRICE) {
+
+        }
+
+        /** \brief Получить свечу по временной метке
+         * \param candle Свеча/бар
+         * \param timestamp временная метка начала свечи
+         * \param optimization оптимизация.
+         * Для отключения указать WITHOUT_OPTIMIZATION.
+         * По умолчанию включена оптимизация последовательного считывания минут OPTIMIZATION_SEQUENTIAL_READING
+         * \return вернет 0 в случае успеха
+         */
+        template <typename T>
+        int get_candle(T &candle, const xtime::timestamp_t timestamp, const int optimization = OPTIMIZATION_SEQUENTIAL_READING) {
+            // сначала проверяем прогноз на запрос на следующую свечу
+            if(optimization == WITHOUT_OPTIMIZATION) {
+                return find_candle(candle, timestamp);
+            } else
+            if(optimization == OPTIMIZATION_SEQUENTIAL_READING)
+            if(candles_array_days[indx_forecast_day][indx_forecast_minute].timestamp == timestamp) {
+                candle = candles_array_days[indx_forecast_day][indx_forecast_minute];
+                // прогноз оправдался, делаем следующий прогноз
+                make_next_candles_forecast();
+                return candle.close != 0.0 ? OK : DATA_NOT_AVAILABLE;
+            } else {
+                // прогноз не был успешен, делаем поиск котировки
+                int minute_day = xtime::get_minute_day(timestamp);
+                const xtime::timestamp_t timestamp_start_day = xtime::get_start_day(timestamp);
+                if(set_start_candles_forecast(timestamp_start_day, minute_day)) {
+                    candle = candles_array_days[indx_forecast_day][indx_forecast_minute];
+                    return candle.close != 0.0 ? OK : DATA_NOT_AVAILABLE;
+                }
+                // поиск не дал результатов, грузим котировки
+                read_candles_data(timestamp_start_day, indent_day_dn, indent_day_up);
+                if(set_start_candles_forecast(timestamp_start_day, minute_day)) {
+                    candle = candles_array_days[indx_forecast_day][indx_forecast_minute];
+                    return candle.close != 0.0 ? OK : DATA_NOT_AVAILABLE;
+                }
+                return STRANGE_PROGRAM_BEHAVIOR;
+            }
+            return INVALID_PARAMETER;
+        }
+
+        /** \brief Проверить бинарный опцион
+         * Данный метод проверяет состояние бинарного опциона и может иметь три состояния (удачный прогноз, нейтральный и неудачный).
+         * При поиске цены входа в опцион данный метод в первую очередь проверит последнюю полученную цену,
+         * которая была получена через метод get_candle. Если метка времени последней полученной цены не совпадает с требуемой,
+         * то метод начнет поиск цены в хранилище.
+         * \param state состояние бинарного опциона (удачная сделка WIN = 1, убыточная LOSS = -1 и нейтральная NEUTRAL = 0)
+         * \param contract_type тип контракта (доступно BUY = 1 и SELL = -1)
+         * \param duration_sec длительность опциона в секундах
+         * \param timestamp временная метка начала опциона
+         * \param price_type цена входа в опцион (цена закрытия PRICE_CLOSE или открытия PRICE_OPEN свечи)
+         * \return состояние ошибки (0 в случае успеха)
+         */
+        int check_binary_option(
+                int& state,
+                const int contract_type,
+                const int duration_sec,
+                const xtime::timestamp_t timestamp,
+                const int price_type = PRICE_CLOSE,
+                const int optimization = OPTIMIZATION_SEQUENTIAL_READING) {
+            if(contract_type != BUY && contract_type != SELL) return INVALID_PARAMETER;
+            if(price_type != PRICE_CLOSE && price_type != PRICE_OPEN) return INVALID_PARAMETER;
+            const xtime::timestamp_t timestamp_stop = timestamp + duration_sec;
+            double price_start, price_stop;
+            Candle candle_start, candle_stop;
+
+            // сначала проверяем прогноз на текущую свечу
+            if(optimization == OPTIMIZATION_SEQUENTIAL_READING) {
+                if(indx_forecast_minute > 0 && candles_array_days[indx_forecast_day][indx_forecast_minute - 1].timestamp == timestamp) {
+                    price_start = price_type == PRICE_CLOSE ? candles_array_days[indx_forecast_day][indx_forecast_minute - 1].close : candles_array_days[indx_forecast_day][indx_forecast_minute - 1].open;
+                    if(price_start == 0.0) return DATA_NOT_AVAILABLE;
+                } else
+                if(indx_forecast_day > 0 && indx_forecast_minute == 0 && candles_array_days[indx_forecast_day - 1][MINUTES_IN_DAY - 1].timestamp == timestamp) {
+                    price_start = price_type == PRICE_CLOSE ? candles_array_days[indx_forecast_day - 1][MINUTES_IN_DAY - 1].close : candles_array_days[indx_forecast_day - 1][MINUTES_IN_DAY - 1].open;
+                    if(price_start == 0.0) return DATA_NOT_AVAILABLE;
+                } else {
+                    // придется искать цену
+                    int err_candle_start = find_candle(candle_start, timestamp);
+                    if(err_candle_start != OK) return DATA_NOT_AVAILABLE;
+                    price_start = price_type == PRICE_CLOSE ? candle_start.close : candle_start.open;
+                }
+            } else {
+                // придется искать цену
+                int err_candle_start = find_candle(candle_start, timestamp);
+                if(err_candle_start != OK) return DATA_NOT_AVAILABLE;
+                price_start = price_type == PRICE_CLOSE ? candle_start.close : candle_start.open;
+            }
+            int err_candle_stop = find_candle(candle_stop, timestamp_stop);
+            if(err_candle_stop != OK) return err_candle_stop;
+            price_stop = price_type == PRICE_CLOSE ? candle_stop.close : candle_stop.open;
+            state = price_start != price_stop ? (contract_type == BUY ? (price_start < price_stop ? WIN : LOSS) : (price_start > price_stop ? WIN : LOSS)) : NEUTRAL;
+            return OK;
         }
 
         /** \brief Получить имя валютной пары
@@ -269,53 +408,25 @@ namespace xquotes_history
          * \return Массив цен
          */
         inline std::vector<double> get_array_prices() {
-            return prices;
+            //return prices;
         }
 
         /** \brief Получить данные массива временных меток
          * \return Массив временных меток
          */
         inline std::vector<unsigned long long> get_array_times() {
-            return times;
+            //return times;
         }
 
-        /** \brief Получить данные цены тика или цены закрытия свечи на указанной временной метке
+        /** \brief Получить цену закрытия свечи на указанной временной метке
          * \param price цена на указанной временной метке
          * \param timestamp временная метка
          * \return состояние огибки, 0 если все в порядке
          */
-        int get_price(double& price, unsigned long long timestamp) {
-            if(times.size() > last_pos && times[last_pos] == timestamp) {
-                    price = prices[last_pos];
-                    last_pos++;
-                    return OK;
-            } else
-            if(times.size() > 0 &&
-                    timestamp >= times[0] &&
-                    timestamp <= times.back()) {
-                    // если данные находятся в пределах загруженных данных
-                    auto lower = std::lower_bound(times.cbegin(), times.cend(), timestamp);
-                    if(lower == times.end())
-                            return DATA_NOT_AVAILABLE;
-                    last_pos = std::distance(times.cbegin(), lower);
-                    price = prices[last_pos];
-                    last_pos++;
-                    return OK;
-            } else {
-                    int err = read_file(timestamp);
-                    if(err != ZstdEasy::OK)
-                            return err;
+        int get_price(double& price, const xtime::timestamp_t timestamp) {
 
-                    auto lower = std::lower_bound(times.cbegin(), times.cend(), timestamp);
-                    if(lower == times.end())
-                            return DATA_NOT_AVAILABLE;
-                    last_pos = std::distance(times.cbegin(), lower);
-                    price = prices[last_pos];
-                    last_pos++;
-                    return OK;
-            }
         }
-//------------------------------------------------------------------------------
+
         /** \brief Получить данные цен тиков или цен закрытия свечей
          * Внимание! Для цен закрытия свечей указывается временная метка НАЧАЛА свечи
          * \param prices цены тиков или цены закрытия свечей
@@ -324,356 +435,189 @@ namespace xquotes_history
          * \param timestamp временная метка
          * \return состояние огибки, 0 если все в порядке
          */
-        int get_prices(std::vector<double>& prices, int data_size, int step, unsigned long long timestamp)
-        {
-                unsigned long long& t1 = timestamp;
-                unsigned long long t2 = timestamp + data_size * step;
+        int get_prices(std::vector<double>& prices, int data_size, int step, unsigned long long timestamp) {
 
-                while(true) {
-                        if(times.size() > 0) {
-                                if(t1 >= times[0] && t2 <= times.back()) {
-                                        // если данные находятся в пределах загруженных данных
-                                        auto lower = std::lower_bound(times.cbegin(), times.cend(), timestamp);
-                                        if(lower == times.end())
-                                                return NO_TIMESTAMP;
-                                        size_t indx = std::distance(times.cbegin(), lower);
-                                        prices.clear();
-                                        prices.reserve(data_size);
-                                        unsigned long long t0 = t1;
-                                        while(true) {
-                                                unsigned long long current_time = times[indx];
-                                                if(t0 == current_time) { // временная метка существует
-                                                        prices.push_back(prices[indx]); // добавляем цену
-                                                        if(prices.size() == (size_t)data_size) // если буфер заполнен, выходим
-                                                                return OK;
-                                                        t0 += step; // иначе ставим следующую временную метку
-                                                        indx++; // увеличиваем позицию в массивах
-                                                        if(indx >= times.size())
-                                                                return NO_TIMESTAMP;
-                                                } else
-                                                if(t0 > current_time) {
-                                                        indx++; // увеличиваем позицию в массивах
-                                                        if(indx >= times.size())
-                                                                return NO_TIMESTAMP;
-                                                } else {
-                                                        // временная метка отсутсвует, выходим
-                                                        return NO_TIMESTAMP;
-                                                }
-                                        }
-                                        return DATA_NOT_AVAILABLE;
-                                } else
-                                if(t1 >= times[0] && t2 > times.back()) {
-                                        int err = add_data_from_file(times.back() + xtime::SECONDS_IN_DAY);
-                                        if(err != OK)
-                                                return err;
-                                } else
-                                if(t1 < times[0] && t2 <= times.back()) {
-                                        int err = add_data_from_file(times[0] - xtime::SECONDS_IN_DAY);
-                                        if(err != OK)
-                                                return err;
-                                } else
-                                if(t1 < times[0] && t2 > times.back()) {
-                                        int err = add_data_from_file(times[0] - xtime::SECONDS_IN_DAY);
-                                        if(err != OK)
-                                                return err;
-                                        err = add_data_from_file(times.back() + xtime::SECONDS_IN_DAY);
-                                        if(err != OK)
-                                                return err;
-                                } // if
-                        } else {
-                                int err = read_file((t1 + t2)/2);
-                                if(err != ZstdEasy::OK)
-                                        return err;
-                        } // if
-                } // while
+        }
+
+        /** \brief Прочитать все данные из директории
+         * \param beg_timestamp временная метка начала чтения исторических данных
+         * \param end_timestamp временная метка конца чтения исторических данных
+         * \return вернет 0 в случае успеха
+         */
+        int read_all_data(unsigned long long beg_timestamp, unsigned long long end_timestamp) {
+
+        }
+
+        /** \brief Прочитать все данные из директории
+         * Данная функция загружает все доступные данные
+         * \return вернет 0 в случае успеха
+         */
+        int read_all_data() {
+
+        }
+
+        /** \brief Получить новую цену
+         * Данную функцию можно вызывать после read_all_data чтобы последовательно считывать данные из массива.
+         * \param price цена
+         * \param timestamp временная метка
+         * \param status состояние данных (END_OF_DATA - конец данных, SKIPPING_DATA - пропущен бар или тик, NORMAL_DATA - данные считаны нормально)
+         * \param period_data период данных (для минутных свечей 60, для тиков на сайте binary - 1 секунда)
+         * \return вернет 0 в случае успеха
+         */
+        int get_price(double &price, unsigned long long &timestamp, int& status, int period_data = 60){
+
+        }
+
+    };
+
+    /** \brief Класс для удобного использования исторических данных нескольких валютных пар
+     */
+    class MultipleQuotesHistory {
+    private:
+
+        std::vector<QuotesHistory> symbols;                /**< Вектор с историческими данными цен */
+        unsigned long long beg_timestamp = 0;                   /**< Временная метка начала исторических данных по всем валютным парам */
+        unsigned long long end_timestamp = 0;                   /**< Временная метка конца исторических данных по всем валютным парам */
+        bool is_init = false;
+
+    public:
+
+        /** \brief Инициализировать класс
+         * \param paths директории с файлами исторических данных
+         * \param dictionary_file файл словаря (если указано "", то считываются несжатые файлы)
+         */
+        MultipleQuotesHistory(std::vector<std::string> paths, std::string dictionary_file = "") {
+            for(size_t i = 0; i < paths.size(); ++i) {
+                //symbols.push_back(CurrencyHistory(paths[i], dictionary_file));
+            }
+            //if(BinaryApiEasy::get_beg_end_timestamp_for_paths(paths, ".", beg_timestamp, end_timestamp) == OK) {
+            //    if(beg_timestamp != end_timestamp) {
+                    is_init = true;
+            //    }
+            //}
+        }
+
+        /** \brief Получить число валют в классе исторических данных
+         * \return число валют
+         */
+        int get_number_currencies() {
+            if(is_init){
+                //return currencies.size();
+            } else return NO_INIT;
         }
 //------------------------------------------------------------------------------
-                /** \brief Проверить бинарный опцион
-                 * \param state состояние бинарного опциона (уданая сделка WIN = 1, убыточная LOSS = -1 и нейтральная 0)
-                 * \param contract_type тип контракта (см. ContractType, доступно BUY и SELL)
-                 * \param duration_sec длительность опциона в секундах
-                 * \param timestamp временная метка начала опциона
-                 * \return состояние ошибки (0 в случае успеха)
-                 */
-                int check_binary_option(int& state, int contract_type, int duration_sec, unsigned long long timestamp)
-                {
-                        if(contract_type != BUY && contract_type != SELL)
-                                return INVALID_PARAMETER;
-                        unsigned long long& t1 = timestamp;
-                        unsigned long long t2 = t1 + duration_sec;
-                        double price_start, price_stop;
-                        int err = get_price(price_start, t1);
-                        if(err != OK)
-                                return err;
-                        err = get_price(price_stop, t2);
-                        if(err != OK)
-                                return err;
-                        //std::cout << price_start << " " << price_stop << std::endl;
-                        state = price_start != price_stop ? (contract_type == BUY ? (price_start < price_stop ? WIN : LOSS) : (price_start > price_stop ? WIN : LOSS)) : NEUTRAL;
-                        return OK;
-                }
-//------------------------------------------------------------------------------
-                /** \brief Прочитать все данные из директории
-                 * \param beg_timestamp временная метка начала чтения исторических данных
-                 * \param end_timestamp временная метка конца чтения исторических данных
-                 * \return вернет 0 в случае успеха
-                 */
-                int read_all_data(unsigned long long beg_timestamp, unsigned long long end_timestamp)
-                {
-                        xtime::DateTime t1(beg_timestamp), t2(end_timestamp);
-                        t1.hour = 0; t1.seconds = 0; t1.minutes = 0;
-                        t2.hour = 0; t2.seconds = 0; t2.minutes = 0;
-                        beg_timestamp = t1.get_timestamp();
-                        end_timestamp = t2.get_timestamp();
-                        if(end_timestamp < beg_timestamp)
-                                return INVALID_PARAMETER;
-                        int err = 0;
-                        bool is_error = true;
-                        for(unsigned long long t = beg_timestamp; t <= end_timestamp; t += xtime::SECONDS_IN_DAY) {
-                                err = add_data_from_file(t);
-                                if(err == OK) {
-                                        is_error = false;
-                                }
-                        }
-                        if(is_error)
-                                return err;
-                        pos = 0;
-                        return OK;
-                }
-//------------------------------------------------------------------------------
-                /** \brief Прочитать все данные из директории
-                 * Данная функция загружает все доступные данные
-                 * \return вернет 0 в случае успеха
-                 */
-                int read_all_data()
-                {
-                        unsigned long long t1, t2;
-                        int err = BinaryApiEasy::get_beg_end_timestamp_for_path(path_, ".", t1, t2);
-                        if(err != OK)
-                                return err;
-                        return read_all_data(t1, t2);
-                }
-//------------------------------------------------------------------------------
-                /** \brief Получить новую цену
-                 * Данную функцию можно вызывать после read_all_data чтобы последовательно считывать данные из массива.
-                 * \param price цена
-                 * \param timestamp временная метка
-                 * \param status состояние данных (END_OF_DATA - конец данных, SKIPPING_DATA - пропущен бар или тик, NORMAL_DATA - данные считаны нормально)
-                 * \param period_data период данных (для минутных свечей 60, для тиков на сайте binary - 1 секунда)
-                 * \return вернет 0 в случае успеха
-                 */
-                int get_price(double &price, unsigned long long &timestamp, int& status, int period_data = 60)
-                {
-                        if(pos > prices.size()) {
-                                status = END_OF_DATA;
-                                return OK;
-                        } else if(prices.size() > 0) {
-                                price = prices[pos];
-                                timestamp = times[pos];
-                                if(pos > 0 && timestamp != times[pos - 1] + period_data)
-                                        status = SKIPPING_DATA;
-                                else
-                                        status = NORMAL_DATA;
-                                pos++;
-                                return OK;
-                        }
-                        status = END_OF_DATA;
-                        return DATA_NOT_AVAILABLE;
-                }
-//------------------------------------------------------------------------------
-        };
-//------------------------------------------------------------------------------
-        /** \brief Класс для удобного использования исторических данных нескольких валютных пар
+        /** \brief Найти первую и последнюю дату файлов
+         * \param beg_timestamp первая дата, встречающееся среди файлов
+         * \param end_timestamp последняя дата, встречающееся среди файлов
+         * \return вернет 0 в случае успеха
          */
-        class MultipleCurrencyHistory
-        {
-        private:
+        inline int get_beg_end_timestamp(unsigned long long &_beg_timestamp, unsigned long long &_end_timestamp) {
+            _beg_timestamp = beg_timestamp;
+            _end_timestamp = end_timestamp;
+            if(!is_init) {
+                return NO_INIT;
+            }
+            return OK;
+        }
 //------------------------------------------------------------------------------
-                std::vector<CurrencyHistory> currencies;                /**< Вектор с историческими данными цен */
-                unsigned long long beg_timestamp = 0;                   /**< Временная метка начала исторических данных по всем валютным парам */
-                unsigned long long end_timestamp = 0;                   /**< Временная метка конца исторических данных по всем валютным парам */
-                bool is_init = false;
-//------------------------------------------------------------------------------
-        public:
-                /** \brief Инициализировать класс
-                 * \param paths директории с файлами исторических данных
-                 * \param dictionary_file файл словаря (если указано "", то считываются несжатые файлы)
-                 */
-                MultipleCurrencyHistory(std::vector<std::string> paths, std::string dictionary_file = "")
-                {
-                        for(size_t i = 0; i < paths.size(); ++i) {
-                                currencies.push_back(CurrencyHistory(paths[i], dictionary_file));
-                        }
-                        if(BinaryApiEasy::get_beg_end_timestamp_for_paths(paths, ".", beg_timestamp, end_timestamp) == OK) {
-                                if(beg_timestamp != end_timestamp) {
-                                        is_init = true;
-                                }
-                        }
+        /** \brief Получить данные цен тиков или цен закрытия свечей
+         * Внимание! Для цен закрытия свечей указывается временная метка НАЧАЛА свечи
+         * \param array_prices массив массивов цен тиков или цен закрытия свечей
+         * \param data_size количество данных для записи в массивы массива array_prices
+         * \param step шаг времени
+         * \param timestamp временная метка
+         * \return состояние огибки, 0 если все в порядке
+         */
+        int get_prices(std::vector<std::vector<double>>& array_prices, int data_size, int step, unsigned long long timestamp) {
+            if(!is_init) {
+                return NO_INIT;
+            }
+            array_prices.resize(symbols.size());
+            for(size_t i = 0; i < symbols.size(); ++i) {
+                int err = symbols[i].get_prices(array_prices[i], data_size, step, timestamp);
+                if(err != OK) {
+                    return err;
                 }
-//------------------------------------------------------------------------------
-                /** \brief Получить число валют в классе исторических данных
-                 * \return число валют
-                 */
-                int get_number_currencies()
-                {
-                        if(is_init){
-                                return currencies.size();
-                        } else return NO_INIT;
+            }
+            return OK;
+        }
+
+        /** \brief Получить массив цен со всех валютных пар по временной метке
+         * \param prices массив цен со всех валютных пар за данную веремнную метку
+         * \param timestamp временная метка
+         * \return вернет 0 в случае успеха
+         */
+        int get_price(std::vector<double> &prices, unsigned long long timestamp) {
+            if(!is_init) {
+                return NO_INIT;
+            }
+            prices.resize(symbols.size());
+            for(size_t i = 0; i < symbols.size(); ++i) {
+                int err = symbols[i].get_price(prices[i], timestamp);
+                if(err != OK) {
+                    return err;
                 }
-//------------------------------------------------------------------------------
-                /** \brief Найти первую и последнюю дату файлов
-                 * \param beg_timestamp первая дата, встречающееся среди файлов
-                 * \param end_timestamp последняя дата, встречающееся среди файлов
-                 * \return вернет 0 в случае успеха
-                 */
-                inline int get_beg_end_timestamp(unsigned long long &_beg_timestamp, unsigned long long &_end_timestamp)
-                {
-                        _beg_timestamp = beg_timestamp;
-                        _end_timestamp = end_timestamp;
-                        if(!is_init) {
-                                return NO_INIT;
-                        }
-                        return OK;
+            }
+            return OK;
+        }
+
+        /** \brief Получить массив цен со всех валютных пар по временной метке
+         * \param prices массив цен со всех валютных пар за данную веремнную метку
+         * \param timestamp временная метка
+         * \return вернет 0 в случае успеха
+         */
+        int get_price(double &price, unsigned long long timestamp, int index) {
+            if(!is_init) return NO_INIT;
+            return symbols[index].get_price(price, timestamp);
+        }
+
+        /** \brief Проверить бинарный опцион
+         * \param state состояние бинарного опциона (уданая сделка WIN = 1, убыточная LOSS = -1 и нейтральная 0)
+         * \param contract_type тип контракта (см. ContractType, доступно BUY и SELL)
+         * \param duration_sec длительность опциона в секундах
+         * \param timestamp временная метка начала опциона
+         * \param indx позиция валютной пары в массиве валютных пар (должно совпадать с позицией в массиве paths)
+         * \return состояние ошибки (0 в случае успеха)
+         */
+        int check_binary_option(int& state, int contract_type, int duration_sec, unsigned long long timestamp, int indx) {
+                if(!is_init) {
+                        return NO_INIT;
                 }
-//------------------------------------------------------------------------------
-                /** \brief Получить данные цен тиков или цен закрытия свечей
-                 * Внимание! Для цен закрытия свечей указывается временная метка НАЧАЛА свечи
-                 * \param array_prices массив массивов цен тиков или цен закрытия свечей
-                 * \param data_size количество данных для записи в массивы массива array_prices
-                 * \param step шаг времени
-                 * \param timestamp временная метка
-                 * \return состояние огибки, 0 если все в порядке
-                 */
-                int get_prices(std::vector<std::vector<double>>& array_prices, int data_size, int step, unsigned long long timestamp)
-                {
-                        if(!is_init) {
-                                return NO_INIT;
-                        }
-                        array_prices.resize(currencies.size());
-                        for(size_t i = 0; i < currencies.size(); ++i) {
-                                int err = currencies[i].get_prices(array_prices[i], data_size, step, timestamp);
-                                if(err != OK) {
-                                        return err;
-                                }
-                        }
-                        return OK;
+                if(indx >= (int)symbols.size()) {
+                        return INVALID_PARAMETER;
                 }
-//------------------------------------------------------------------------------
-#if HISTORICALDATAEASY_USE_THREAD == 0
-                /** \brief Получить массив цен со всех валютных пар по временной метке
-                 * \param prices массив цен со всех валютных пар за данную веремнную метку
-                 * \param timestamp временная метка
-                 * \return вернет 0 в случае успеха
-                 */
-                int get_price(std::vector<double> &prices, unsigned long long timestamp)
-                {
-                        if(!is_init) {
-                                return NO_INIT;
-                        }
-                        prices.resize(currencies.size());
-                        for(size_t i = 0; i < currencies.size(); ++i) {
-                                int err = currencies[i].get_price(prices[i], timestamp);
-                                if(err != OK) {
-                                        return err;
-                                }
-                        }
-                        return OK;
-                }
-#else
-                /** \brief Получить массив цен со всех валютных пар по временной метке
-                 * \param prices массив цен со всех валютных пар за данную веремнную метку
-                 * \param timestamp временная метка
-                 * \return вернет 0 в случае успеха
-                 */
-                int get_price(std::vector<double> &prices, unsigned long long timestamp)
-                {
-                        if(!is_init) {
-                                return NO_INIT;
-                        }
-                        prices.resize(currencies.size());
-                        std::vector<std::thread> list_thread(prices.size());
-                        std::mutex price_mutex;
-                        int gerr = OK;
-                        for(size_t i = 0; i < currencies.size(); ++i) {
-                                list_thread[i] = std::thread([&, i, timestamp]() {
-                                        double price = 0;
-                                        int err = currencies[i].get_price(price, timestamp);
-                                        if(err != OK) {
-                                                price_mutex.lock();
-                                                gerr = err;
-                                                price_mutex.unlock();
-                                        } else {
-                                                price_mutex.lock();
-                                                prices[i] = price;
-                                                price_mutex.unlock();
-                                        }
-                                });
-                        }
-                        for(size_t i = 0; i < list_thread.size(); ++i) {
-                                list_thread[i].join();
-                        }
-                        return gerr;
-                }
-#endif // HISTORICALDATAEASY_USE_THRESHOLD
-//------------------------------------------------------------------------------
-                /** \brief Получить массив цен со всех валютных пар по временной метке
-                 * \param prices массив цен со всех валютных пар за данную веремнную метку
-                 * \param timestamp временная метка
-                 * \return вернет 0 в случае успеха
-                 */
-                int get_price(double &price, unsigned long long timestamp, int index)
-                {
-                        if(!is_init) return NO_INIT;
-                        return currencies[index].get_price(price, timestamp);
-                }
-//------------------------------------------------------------------------------
-                /** \brief Проверить бинарный опцион
-                 * \param state состояние бинарного опциона (уданая сделка WIN = 1, убыточная LOSS = -1 и нейтральная 0)
-                 * \param contract_type тип контракта (см. ContractType, доступно BUY и SELL)
-                 * \param duration_sec длительность опциона в секундах
-                 * \param timestamp временная метка начала опциона
-                 * \param indx позиция валютной пары в массиве валютных пар (должно совпадать с позицией в массиве paths)
-                 * \return состояние ошибки (0 в случае успеха)
-                 */
-                int check_binary_option(int& state, int contract_type, int duration_sec, unsigned long long timestamp, int indx) {
-                        if(!is_init) {
-                                return NO_INIT;
-                        }
-                        if(indx >= (int)currencies.size()) {
-                                return INVALID_PARAMETER;
-                        }
-                        return currencies[indx].check_binary_option(state, contract_type, duration_sec, timestamp);
-                }
-//------------------------------------------------------------------------------
+                return symbols[indx].check_binary_option(state, contract_type, duration_sec, timestamp);
+        }
+
                 /** \brief Получить имя валютной пары по индексу
                  * \param index индекс валютной пары
                  * \return имя валютной пары
                  */
                 inline std::string get_name(int index)
                 {
-                        return currencies[index].get_name();
+                        return symbols[index].get_name();
                 }
-//------------------------------------------------------------------------------
+
                 /** \brief Получить директорию файлов
                  * \param index индекс валютной пары
                  * \return директория файлов
                  */
                 inline std::string get_path(int index)
                 {
-                        return currencies[index].get_path();
+                        return symbols[index].get_path();
                 }
-//------------------------------------------------------------------------------
+
                 /** \brief Получить расширение файла
                  * \param index индекс валютной пары
                  * \return расширение файла
                  */
                 inline std::string get_file_extension(int index)
                 {
-                        return currencies[index].get_file_extension();
+                        return symbols[index].get_file_extension();
                 }
-//------------------------------------------------------------------------------
+
         };
-//------------------------------------------------------------------------------
+
 }
-//------------------------------------------------------------------------------
-#endif // HISTORICALDATAEASY_HPP_INCLUDED
+
+#endif // XQUOTES_HISTORY_HPP_INCLUDED

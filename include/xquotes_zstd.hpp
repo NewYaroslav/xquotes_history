@@ -29,73 +29,72 @@
 #include "zstd.h"
 #include <cstring>
 //------------------------------------------------------------------------------
-namespace xquotes_zstd
-{
-        using namespace xquotes_common;
+namespace xquotes_zstd {
+    using namespace xquotes_common;
 //------------------------------------------------------------------------------
-        /** \brief Тренируйте словарь из массива образцов
-        * \param path путь к файлам
-        * \param file_name имя файл словаря, который будет сохранен по окончанию обучения
-        * \return венет 0 в случае успеха
-        */
-        int train_zstd(std::vector<std::string> &files_list, std::string file_name, size_t dict_buffer_capacit = 102400)
-        {
-                size_t all_files_size = 0;
-                void *samples_buffer = NULL;
+    /** \brief Тренируйте словарь из массива образцов
+    * \param path путь к файлам
+    * \param file_name имя файл словаря, который будет сохранен по окончанию обучения
+    * \return венет 0 в случае успеха
+    */
+    int train_zstd(
+            std::vector<std::string> &files_list,
+            std::string file_name,
+            size_t dict_buffer_capacit = 102400) {
+        size_t all_files_size = 0;
+        void *samples_buffer = NULL;
 
-                size_t num_files = 0;
-                size_t *samples_size = NULL;
-                for(size_t i = 0; i < files_list.size(); ++i) {
-                        int file_size = bf::get_file_size(files_list[i]);
-                        if(file_size > 0) {
-                                num_files++;
-                                size_t start_pos = all_files_size;
-                                all_files_size += file_size;
-                                std::cout << "buffer size: " << all_files_size << std::endl;
-                                samples_buffer = realloc(samples_buffer, all_files_size);
-                                samples_size = (size_t*)realloc((void*)samples_size, num_files * sizeof(size_t));
-                                samples_size[num_files - 1] = file_size;
-                                int err = bf::load_file(files_list[i], samples_buffer, all_files_size, start_pos);
-                                if(err != file_size) {
-                                        std::cout << "load file: error, " << files_list[i] << std::endl;
-                                        if(samples_buffer != NULL)
-                                                free(samples_buffer);
-                                        if(samples_size != NULL)
-                                                free(samples_size);
-                                        return NOT_OPEN_FILE;
-                                } else {
-                                        std::cout << "load file: " << files_list[i] << " #" << num_files << std::endl;
-                                }
-                        } else {
-                                std::cout << "buffer size: error, " << files_list[i] << std::endl;
-                                if(samples_buffer != NULL)
-                                        free(samples_buffer);
-                                if(samples_size != NULL)
-                                        free(samples_size);
-                                return NOT_OPEN_FILE;
-                        }
+        size_t num_files = 0;
+        size_t *samples_size = NULL;
+        for(size_t i = 0; i < files_list.size(); ++i) {
+            int file_size = bf::get_file_size(files_list[i]);
+            if(file_size > 0) {
+                num_files++;
+                size_t start_pos = all_files_size;
+                all_files_size += file_size;
+                std::cout << "buffer size: " << all_files_size << std::endl;
+                samples_buffer = realloc(samples_buffer, all_files_size);
+                samples_size = (size_t*)realloc((void*)samples_size, num_files * sizeof(size_t));
+                samples_size[num_files - 1] = file_size;
+                int err = bf::load_file(files_list[i], samples_buffer, all_files_size, start_pos);
+                if(err != file_size) {
+                    std::cout << "load file: error, " << files_list[i] << std::endl;
+                    if(samples_buffer != NULL)
+                        free(samples_buffer);
+                    if(samples_size != NULL)
+                        free(samples_size);
+                    return NOT_OPEN_FILE;
+                } else {
+                    std::cout << "load file: " << files_list[i] << " #" << num_files << std::endl;
                 }
-                void *dict_buffer = NULL;
-                //size_t dict_buffer_capacit = 1024*100;
-                dict_buffer = malloc(dict_buffer_capacit);
-                memset(dict_buffer, 0, dict_buffer_capacit);
-                size_t file_size = ZDICT_trainFromBuffer(dict_buffer, dict_buffer_capacit, samples_buffer, samples_size, num_files);
-                size_t err = bf::write_file(file_name, dict_buffer, file_size);
-                return err > 0 ? OK : NOT_WRITE_FILE;
+            } else {
+                std::cout << "buffer size: error, " << files_list[i] << std::endl;
+                if(samples_buffer != NULL)
+                    free(samples_buffer);
+                if(samples_size != NULL)
+                    free(samples_size);
+                return NOT_OPEN_FILE;
+            }
         }
+        void *dict_buffer = NULL;
+        //size_t dict_buffer_capacit = 1024*100;
+        dict_buffer = malloc(dict_buffer_capacit);
+        memset(dict_buffer, 0, dict_buffer_capacit);
+        size_t file_size = ZDICT_trainFromBuffer(dict_buffer, dict_buffer_capacit, samples_buffer, samples_size, num_files);
+        size_t err = bf::write_file(file_name, dict_buffer, file_size);
+        return err > 0 ? OK : NOT_WRITE_FILE;
+    }
 
-        /** \brief Тренируйте словарь из массива образцов
-         * \param path путь к файлам
-         * \param file_name имя файл словаря, который будет сохранен по окончанию обучения
-         * \return венет 0 в случае успеха
-         */
-        int train_zstd(std::string path, std::string file_name, size_t dict_buffer_capacit = 102400)
-        {
-                std::vector<std::string> files_list;
-                bf::get_list_files(path, files_list, true);
-
-                return train_zstd(files_list, file_name, dict_buffer_capacit);
-        }
+    /** \brief Тренируйте словарь из массива образцов
+     * \param path путь к файлам
+     * \param file_name имя файл словаря, который будет сохранен по окончанию обучения
+     * \return венет 0 в случае успеха
+     */
+    int train_zstd(std::string path, std::string file_name, size_t dict_buffer_capacit = 102400) {
+        std::vector<std::string> files_list;
+        bf::get_list_files(path, files_list, true);
+        return train_zstd(files_list, file_name, dict_buffer_capacit);
+    }
 //------------------------------------------------------------------------------
         /** \brief Сжать файл с использованием словаря
          * \param input_file файл, который надо сжать

@@ -76,9 +76,28 @@ namespace xquotes_common {
         }
     };
 
+    /// Набор вариантов оптимизаций
+    enum {
+        WITHOUT_OPTIMIZATION = 0,               ///< Без оптимизация
+        OPTIMIZATION_SEQUENTIAL_READING = 1,    ///< Оптимизация последовательного чтения минутных свечей
+    };
+
+    /// Константы для настроек
+    enum {
+        PRICE_CLOSE = 0,    ///< Использовать цену закрытия
+        PRICE_OPEN = 1,     ///< Использовать цену открытия
+        ALL_PRICE = 2,      ///< Использовать все цены свечи
+        BUY = 1,            ///< Сделка на покупку
+        SELL = -1,          ///< Сделка на продажу
+        WIN = 1,            ///< Удачная сделка, победа
+        LOSS = -1,          ///< Убычтоная сделка, проигрыш
+        NEUTRAL = 0,        ///< Нейтральный результат
+    };
+
     /// Набор возможных состояний ошибки
     enum {
         OK = 0,                         ///< Ошибок нет
+        NO_INIT = -1,
         INVALID_PARAMETER = -6,         ///< Один из параметров неверно указан
         DATA_NOT_AVAILABLE = -7,        ///< Данные не доступны
         INVALID_ARRAY_LENGH = -1,       ///< Неправильная длина массиа
@@ -93,8 +112,9 @@ namespace xquotes_common {
         FILE_NOT_OPENED = -18,
         NO_SUBFILES = -19,
         SUBFILES_NOT_FOUND = -20,
-        SUBFILES_COMPRESSION_ERROR = -21,
+        SUBFILES_COMPRESSION_ERROR = -21,       ///< Ошибка сжатия подфайла
         SUBFILES_DECOMPRESSION_ERROR = -22,     ///< Ошибка декомпрессии подфайла
+        STRANGE_PROGRAM_BEHAVIOR = -23,
     };
 }
 

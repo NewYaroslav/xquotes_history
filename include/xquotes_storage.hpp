@@ -19,9 +19,9 @@
 
 namespace xquotes_storage {
     using namespace xquotes_common;
-//------------------------------------------------------------------------------
-// РАБОТА С ФАЙЛОМ-ХРАНИЛИЩЕМ
-//------------------------------------------------------------------------------
+
+    /** \brief Класс для работы с файлом-хранилищем котировок
+     */
     class Storage {
         private:
         std::fstream file;                              /**< Файл данных */
@@ -30,6 +30,7 @@ namespace xquotes_storage {
         bool is_file_open = false;
         char *dictionary_file_buffer = NULL;
         int dictionary_file_size = 0;
+
         /** \brief Класс подфайла
          */
         class Subfile {
@@ -301,11 +302,10 @@ namespace xquotes_storage {
         Storage() {};
 
         /** \brief Инициализировать класс хранилища
-         * Данная функция позволяет узнать размер подфайла
          * \param path путь к файлу с данными
          * \param dictionary_file путь к файлу словаря для архивирования данных. По умолчанию не используется
          */
-        Storage(std::string path, std::string dictionary_file = "") {
+        Storage(const std::string path, const std::string dictionary_file = "") {
             file_name = path;
             if(!bf::check_file(path)) {
                 if(!create_file(path)) return;
@@ -321,6 +321,21 @@ namespace xquotes_storage {
                 std::fill(dictionary_file_buffer, dictionary_file_buffer + dictionary_file_size, '\0');
                 bf::load_file(dictionary_file, dictionary_file_buffer, dictionary_file_size);
             }
+        }
+
+        /** \brief Инициализировать класс хранилища
+         * \param path путь к файлу с данными
+         * \param dictionary_buffer указатель на буфер словаря
+         * \param dictionary_buffer_size размер буфера словаря
+         */
+        Storage(const std::string path, const char *dictionary_buffer, const size_t dictionary_buffer_size) {
+            file_name = path;
+            if(!bf::check_file(path)) {
+                if(!create_file(path)) return;
+            }
+            open(path);
+            dictionary_file_buffer = (char*)dictionary_buffer;
+            dictionary_file_size = dictionary_buffer_size;
         }
 
         /** \brief Получить размер подфайла
@@ -494,7 +509,7 @@ namespace xquotes_storage {
             std::fill(buffer, buffer + decompress_file_size, '\0');
 
             // на данном этапе переменная last_size_found в любом случае будет содержать размер файла
-            const ZSTD_DCtx* dctx = ZSTD_createDCtx();
+            ZSTD_DCtx* const dctx = ZSTD_createDCtx();
             const size_t subfile_size = ZSTD_decompress_usingDict(
                 dctx,
                 buffer,
