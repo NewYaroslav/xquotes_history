@@ -13,8 +13,8 @@
 
 int main() {
 
-    std::string path = "D:\\_repoz\\finam_history_quotes\\xq4hex";
-    std::string path2 = "D:\\_repoz\\xquotes_history\\dukascopy\\xq4hex";
+    std::string path = "D:\\_repoz\\finam_history_quotes\\xq5hex";
+    std::string path2 = "D:\\_repoz\\xquotes_history\\dukascopy\\xq5hex";
     std::vector<std::string> files_list;
     std::vector<std::string> files_list2;
     bf::get_list_files(path, files_list);
@@ -29,7 +29,7 @@ int main() {
     files_list2.resize(SAMPLES2);
     files_list.insert(files_list.end(), files_list2.begin(), files_list2.end());
 
-    xquotes_zstd::train_zstd(files_list, "candles.dat");
+    xquotes_zstd::train_zstd(files_list, "candles_with_volume.dat");
     return 0;
 }
 

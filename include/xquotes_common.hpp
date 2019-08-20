@@ -25,12 +25,17 @@
 #define XQUOTES_COMMON_HPP_INCLUDED
 
 namespace xquotes_common {
-    typedef unsigned long key_t;
+    typedef unsigned short key_t;
     typedef unsigned long link_t;
     typedef unsigned long price_t;
+    typedef unsigned long note_t;
 
     const double PRICE_MULTIPLER = 100000.0d;   ///< множитель для 5-ти значных котировок
     const int MINUTES_IN_DAY = 1440;            ///< количество минут в одном дне
+
+    const unsigned long ONLY_ONE_PRICE_BUFFER_SIZE = MINUTES_IN_DAY * sizeof(price_t);
+    const unsigned long CANDLE_WITHOUT_VOLUME_BUFFER_SIZE = MINUTES_IN_DAY * 4 * sizeof(price_t);
+    const unsigned long CANDLE_WITH_VOLUME_BUFFER_SIZE = MINUTES_IN_DAY * 5 * sizeof(price_t);
 
     /** \brief Перевести double-цену в тип price_t
      * \param price цена
@@ -48,6 +53,8 @@ namespace xquotes_common {
         return (double)price / PRICE_MULTIPLER;
     }
 
+    /** \brief Класс для хранения японских свечей
+     */
     class Candle {
     public:
         double open = 0;
@@ -86,21 +93,30 @@ namespace xquotes_common {
     enum {
         PRICE_CLOSE = 0,    ///< Использовать цену закрытия
         PRICE_OPEN = 1,     ///< Использовать цену открытия
-        ALL_PRICE = 2,      ///< Использовать все цены свечи
+        PRICE_OHLC = 2,     ///< Использовать все цены свечи без объемов
+        PRICE_OHLCV = 3,    ///< Использовать все цены свечи с объемом
+        PRICE_LOW = 4,      ///< Использовать наименьшую цену свечи
+        PRICE_HIGH = 5,     ///< Использовать наибольшую цену свечи
         BUY = 1,            ///< Сделка на покупку
         SELL = -1,          ///< Сделка на продажу
         WIN = 1,            ///< Удачная сделка, победа
         LOSS = -1,          ///< Убычтоная сделка, проигрыш
         NEUTRAL = 0,        ///< Нейтральный результат
+        USE_COMPRESSION = 1,
+        DO_NOT_USE_COMPRESSION = 0,
+        CET_TO_GMT = 1,
+        EET_TO_GMT = 2,
+        GMT_TO_CET = 3,
+        GMT_TO_EET = 4,
     };
 
     /// Набор возможных состояний ошибки
     enum {
         OK = 0,                         ///< Ошибок нет
-        NO_INIT = -1,
+        NO_INIT = -1,                   ///< Нет инициализаци
         INVALID_PARAMETER = -6,         ///< Один из параметров неверно указан
         DATA_NOT_AVAILABLE = -7,        ///< Данные не доступны
-        INVALID_ARRAY_LENGH = -1,       ///< Неправильная длина массиа
+        INVALID_ARRAY_LENGH = -8,       ///< Неправильная длина массиа
         NOT_OPEN_FILE = -9,             ///< Файл не был открыт
         NOT_WRITE_FILE = -10,           ///< Файл нельзя записать
         NOT_COMPRESS_FILE = -11,        ///< Файл нельзя сжать

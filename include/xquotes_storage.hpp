@@ -23,21 +23,23 @@ namespace xquotes_storage {
     /** \brief Класс для работы с файлом-хранилищем котировок
      */
     class Storage {
-        private:
+        protected:
         std::fstream file;                              /**< Файл данных */
-        std::string file_name;
-        bool is_write = false;
-        bool is_file_open = false;
-        char *dictionary_file_buffer = NULL;
+        std::string file_name;                          /**< Имя файла данных */
+        bool is_write = false;                          /**< Флаг записи данных. Данный флаг устанавливается, если была хотя бы одна запись в файл*/
+        bool is_file_open = false;                      /**< Фдаг наличия файла данных */
+        char *dictionary_file_buffer = NULL;            /**< Указатель на буфер для хранения словаря */
         int dictionary_file_size = 0;
+        bool is_mem_dict_file = false;                  /**< Флаг использования выделения памяти под словарь */
+        note_t file_note = 0;                           /**< Заметка файла */
 
         /** \brief Класс подфайла
          */
         class Subfile {
             public:
-            key_t key = 0;     /**< Ключ подфайла */
-            unsigned long size = 0;         /**< Размер подфайла */
-            key_t link = 0;         /**< Ссылка на подфайл */
+            key_t key = 0;          /**< Ключ подфайла */
+            unsigned long size = 0; /**< Размер подфайла */
+            link_t link = 0;        /**< Ссылка на подфайл */
             Subfile() {};
 
             Subfile(const key_t key, const unsigned long size, const link_t link) {
@@ -152,12 +154,13 @@ namespace xquotes_storage {
                 _file.read(reinterpret_cast<char *>(&_subfiles[i].size), sizeof(unsigned long));
                 _file.read(reinterpret_cast<char *>(&_subfiles[i].link), sizeof(link_t));
             }
+            _file.read(reinterpret_cast<char *>(&file_note), sizeof(file_note));
             sort_subfiles(_subfiles);
         }
 
         inline bool open(std::string path) {
             is_file_open = false;
-            is_write = false;
+            is_write = false; // сбрасываем флаг записи подфайлов
             file = std::fstream(path, std::ios_base::binary | std::ios::in | std::ios::out | std::ios::ate);
             if(!file.is_open()) return false;
             read_header(file, subfiles);
@@ -188,6 +191,7 @@ namespace xquotes_storage {
                 _file.write(reinterpret_cast<char *>(&_subfiles[i].size), sizeof(unsigned long));
                 _file.write(reinterpret_cast<char *>(&_subfiles[i].link), sizeof(link_t));
             }
+            _file.write(reinterpret_cast<char *>(&file_note), sizeof(file_note));
         }
 
         inline bool create_file(std::string file_name) {
@@ -197,16 +201,19 @@ namespace xquotes_storage {
             return true;
         }
 
+        // последний подфайл, который был найден
         unsigned long long last_key_found = 0;
         unsigned long last_link_found = 0;
         unsigned long last_size_found = 0;
         bool is_subfile_found = false;
 
+        /** \brief Сохранить найденных подфайл (только его параметры!)
+         */
         void save_subfile_found(const Subfile *subfile) {
-            is_subfile_found = true;
             last_size_found = subfile->size;
             last_key_found = subfile->key;
             last_link_found = subfile->link;
+            is_subfile_found = true;
         }
 
         int write_subfile_to_beg(const key_t key, const char *buffer, const unsigned long length) {
@@ -286,7 +293,6 @@ namespace xquotes_storage {
                 new_file.close();
                 file.close();
                 is_file_open = false;
-
                 if(remove(file_name.c_str()) != 0) return FILE_CANNOT_REMOVED;
                 if(rename(temp_file.c_str(), file_name.c_str()) != 0) return FILE_CANNOT_RENAMED;
                 if(!open(file_name)) return FILE_CANNOT_OPENED;
@@ -320,6 +326,7 @@ namespace xquotes_storage {
                 dictionary_file_buffer = new char[dictionary_file_size];
                 std::fill(dictionary_file_buffer, dictionary_file_buffer + dictionary_file_size, '\0');
                 bf::load_file(dictionary_file, dictionary_file_buffer, dictionary_file_size);
+                is_mem_dict_file = true; // ставим флаг использования памяти под словарь
             }
         }
 
@@ -334,6 +341,47 @@ namespace xquotes_storage {
                 if(!create_file(path)) return;
             }
             open(path);
+            dictionary_file_buffer = (char*)dictionary_buffer;
+            dictionary_file_size = dictionary_buffer_size;
+        }
+
+        /** \brief Инициализировать класс хранилища
+         * \param path путь к файлу с данными
+         * \param dictionary_buffer указатель на буфер словаря
+         * \param dictionary_buffer_size размер буфера словаря
+         * \return вернет true, если инициализация прошла успешно
+         */
+        bool init(const std::string path, const char *dictionary_buffer, const size_t dictionary_buffer_size) {
+            if(is_file_open) return false;
+            file_name = path;
+            if(!bf::check_file(path)) {
+                if(!create_file(path)) return false;
+            }
+            if(!open(path)) return false;
+            dictionary_file_buffer = (char*)dictionary_buffer;
+            dictionary_file_size = dictionary_buffer_size;
+            return true;
+        }
+
+        /** \brief Инициализировать класс хранилища
+         * \param path путь к файлу с данными
+         * \return вернет true, если инициализация прошла успешно
+         */
+        bool init(const std::string path) {
+            if(is_file_open) return false;
+            file_name = path;
+            if(!bf::check_file(path)) {
+                if(!create_file(path)) return false;
+            }
+            if(!open(path)) return false;
+            return true;
+        }
+
+        /** \brief Инициализировать указатель на словарь
+         * \param dictionary_buffer указатель на буфер словаря
+         * \param dictionary_buffer_size размер буфера словаря
+         */
+        void set_dictionary(const char *dictionary_buffer, const size_t dictionary_buffer_size) {
             dictionary_file_buffer = (char*)dictionary_buffer;
             dictionary_file_size = dictionary_buffer_size;
         }
@@ -423,6 +471,10 @@ namespace xquotes_storage {
             return true;
         }
 
+        int get_subfile_list(const key_t key, std::vector<int>& list_subfile, bool is_past = true) {
+
+        }
+
 #if     XQUOTES_USE_ZSTD == 1
 
         /** \brief Записать сжатый подфайл
@@ -495,12 +547,12 @@ namespace xquotes_storage {
 
             const unsigned long long decompress_file_size = ZSTD_getFrameContentSize(input_subfile_buffer, last_size_found);
             if(decompress_file_size == ZSTD_CONTENTSIZE_ERROR) {
-                std::cout << file_name << " it was not compressed by zstd." << std::endl;
+                //std::cout << file_name << " it was not compressed by zstd." << std::endl;
                 delete input_subfile_buffer;
                 return NOT_DECOMPRESS_FILE;
             } else
             if(decompress_file_size == ZSTD_CONTENTSIZE_UNKNOWN) {
-                std::cout << file_name << " original size unknown." << std::endl;
+                //std::cout << file_name << " original size unknown." << std::endl;
                 delete input_subfile_buffer;
                 return NOT_DECOMPRESS_FILE;
             }
@@ -543,9 +595,42 @@ namespace xquotes_storage {
             }
         }
 
+        /** \brief Получить минимальный и максимальный ключ подфайлов
+         * \param min_key минимальный ключ подфайлов
+         * \param max_key максимальный ключ подфайлов
+         * \return вернет 0 в случае успеха
+         */
+        int get_min_max_key(key_t &min_key, key_t &max_key) {
+            if(subfiles.size() == 0) return DATA_NOT_AVAILABLE;
+            auto subfiles_max_it = std::max_element(
+                subfiles.begin(),
+                subfiles.end(),
+                [](const Subfile &lhs, const Subfile &rhs) {
+                return lhs.key < rhs.key;
+            });
+            auto subfiles_min_it = std::min_element(
+                subfiles.begin(),
+                subfiles.end(),
+                [](const Subfile &lhs, const Subfile &rhs) {
+                return lhs.key < rhs.key;
+            });
+            max_key = subfiles_max_it->key;
+            min_key = subfiles_min_it->key;
+            return OK;
+        }
+
+        /** \brief Получить количество подфайлов
+         * \return количество подфайлов
+         */
+        int get_num_subfiles() {return subfiles.size();};
+
+        note_t get_file_note() {return file_note;};
+
+        void set_file_note(note_t new_file_note) {file_note = new_file_note;};
+
         ~Storage() {
             close();
-            delete dictionary_file_buffer;
+            if(is_mem_dict_file) delete dictionary_file_buffer;
         }
     };
 }

@@ -101,10 +101,17 @@ namespace xquotes_csv {
             return true;
         }
 
+    /** \brief Прочитать файл
+     * \param file_name
+     * \param is_read_header
+     * \param time_zone
+     * \param f
+     * \return
+     */
     int read_file(
             std::string file_name,
             bool is_read_header,
-            bool is_cet_to_gmt,
+            int time_zone,
             std::function<void (Candle candle, bool is_end)> f
             ) {
         std::ifstream file(file_name);
@@ -124,7 +131,8 @@ namespace xquotes_csv {
                 f(Candle(open, high, low, close, volume, timestamp), true);
                 break;
             }
-            if(is_cet_to_gmt) timestamp = xtime::convert_cet_to_gmt(timestamp);
+            if(time_zone == CET_TO_GMT) timestamp = xtime::convert_cet_to_gmt(timestamp);
+            else if(time_zone == EET_TO_GMT) timestamp = xtime::convert_eet_to_gmt(timestamp);
             f(Candle(open, high, low, close, volume, timestamp), false);
         }
         file.close();
