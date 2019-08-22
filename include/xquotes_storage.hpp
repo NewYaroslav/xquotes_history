@@ -390,7 +390,7 @@ namespace xquotes_storage {
          * Данная функция позволяет узнать размер подфайла
          * \param key ключ подфайла
          * \param size размер подфайла
-         * \return вернет 0 в случае отсутствия ошибок
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         int get_subfile_size(const key_t key, unsigned long &size) {
             if(subfiles.size() == 0) return NO_SUBFILES;
@@ -411,7 +411,7 @@ namespace xquotes_storage {
          * \param key ключ подфайла
          * \param buffer буфер для чтения файла. Если равен NULL, функция сама выделит память!
          * \param buffer_size сюда будет помещен размер буфера (подфайла)
-         * \return вернет 0 в случае отсутствия ошибок
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         int read_subfile(const key_t key, char *&buffer, unsigned long &buffer_size) {
             if(!is_file_open) return FILE_NOT_OPENED;
@@ -442,7 +442,7 @@ namespace xquotes_storage {
          * \param key ключ подфайла
          * \param buffer буфер для записи файла
          * \param buffer_size размер буфера (размер подфайла)
-         * \return вернет 0 в случае отсутствия ошибок
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         int write_subfile(const key_t key, const char *buffer, const unsigned long buffer_size) {
             if(!is_file_open) return FILE_NOT_OPENED;
@@ -471,8 +471,56 @@ namespace xquotes_storage {
             return true;
         }
 
-        int get_subfile_list(const key_t key, std::vector<int>& list_subfile, bool is_past = true) {
-
+        /** \brief Получить список подфайлов, начинаюбщихся с определенного ключа
+         * \warning Файл с ключем key тоже будет в списке list_subfile!
+         * \param key ключ подфайла, с кооторого будет начат поиск
+         * \param list_subfile список файлов
+         * \param f функтор для условия пропуска ключей подфайлов
+         * \param is_go_to_top идти к началу списка или к концу, если false
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
+         */
+        int get_subfile_list(
+                const key_t key,
+                std::vector<key_t>& list_subfile,
+                const int num_subfile,
+                bool (*f)(const key_t key) = NULL,
+                bool is_go_to_top = true) {
+            if(subfiles.size() == 0) return DATA_NOT_AVAILABLE;
+            auto subfiles_it = std::lower_bound(
+                subfiles.begin(),
+                subfiles.end(),
+                key,
+                [](const Subfile &lhs, const key_t &key) {
+                return lhs.key < key;
+            });
+            if(subfiles_it == subfiles.end()) {
+                return DATA_NOT_AVAILABLE;
+            }
+            if(is_go_to_top) {
+                size_t indx = subfiles_it - subfiles.begin();
+                list_subfile.clear();
+                while(indx > 0 && (int)list_subfile.size() < num_subfile) {
+                    if(f != NULL && f(subfiles[indx].key)) {
+                        indx--;
+                        continue;
+                    }
+                    list_subfile.push_back(subfiles[indx].key);
+                    indx--;
+                }
+                std::reverse(list_subfile.begin(), list_subfile.end());
+            } else {
+                size_t indx = subfiles.end() - subfiles_it;
+                list_subfile.clear();
+                while(indx < subfiles.size() && (int)list_subfile.size() < num_subfile) {
+                    if(f != NULL && f(subfiles[indx].key)) {
+                        indx++;
+                        continue;
+                    }
+                    list_subfile.push_back(subfiles[indx].key);
+                    indx++;
+                }
+            }
+            return OK;
         }
 
 #if     XQUOTES_USE_ZSTD == 1
@@ -483,7 +531,7 @@ namespace xquotes_storage {
          * \param buffer буфер для записи файла
          * \param buffer_size размер буфера (размер подфайла до компрессии)
          * \param compress_level уровень сжатия, по умолчанию максимальный
-         * \return вернет 0 в случае отсутствия ошибок
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         int write_compressed_subfile(
                 const key_t key,
@@ -525,7 +573,7 @@ namespace xquotes_storage {
          * \param key ключ подфайла
          * \param buffer буфер для чтения файла. Если равен NULL, функция сама выделит память!
          * \param buffer_size сюда будет помещен размер подфайла после декомпресси
-         * \return вернет 0 в случае отсутствия ошибок
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         int read_compressed_subfile(const key_t key, char *&buffer, unsigned long& buffer_size) {
             if(!is_file_open) return FILE_NOT_OPENED;
@@ -549,11 +597,13 @@ namespace xquotes_storage {
             if(decompress_file_size == ZSTD_CONTENTSIZE_ERROR) {
                 //std::cout << file_name << " it was not compressed by zstd." << std::endl;
                 delete input_subfile_buffer;
+                input_subfile_buffer = NULL;
                 return NOT_DECOMPRESS_FILE;
             } else
             if(decompress_file_size == ZSTD_CONTENTSIZE_UNKNOWN) {
                 //std::cout << file_name << " original size unknown." << std::endl;
                 delete input_subfile_buffer;
+                input_subfile_buffer = NULL;
                 return NOT_DECOMPRESS_FILE;
             }
 
@@ -576,19 +626,22 @@ namespace xquotes_storage {
                 ZSTD_freeDCtx(dctx);
                 delete buffer;
                 delete input_subfile_buffer;
+                buffer =  NULL;
+                input_subfile_buffer = NULL;
                 buffer_size = 0;
                 return NOT_DECOMPRESS_FILE;
             }
             buffer_size = subfile_size;
             ZSTD_freeDCtx(dctx);
             delete input_subfile_buffer;
+            input_subfile_buffer = NULL;
             return OK;
         }
 #       endif // XQUOTES_USE_ZSTD
 
         /** \brief Закрыть файл хранилища
          */
-        void close() {
+        virtual void close() {
             if(file.is_open()) {
                 if(is_write) write_header(file, subfiles);
                 file.close();
@@ -598,7 +651,7 @@ namespace xquotes_storage {
         /** \brief Получить минимальный и максимальный ключ подфайлов
          * \param min_key минимальный ключ подфайлов
          * \param max_key максимальный ключ подфайлов
-         * \return вернет 0 в случае успеха
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         int get_min_max_key(key_t &min_key, key_t &max_key) {
             if(subfiles.size() == 0) return DATA_NOT_AVAILABLE;
@@ -624,8 +677,14 @@ namespace xquotes_storage {
          */
         int get_num_subfiles() {return subfiles.size();};
 
+        /** \brief Получить заметку файла
+         * \return заметка файла (число, которое может хранить пользовательские биты настроек)
+         */
         note_t get_file_note() {return file_note;};
 
+        /** \brief Установить заметку файла
+         * \param new_file_note заметка файла (число, которое может хранить пользовательские биты настроек)
+         */
         void set_file_note(note_t new_file_note) {file_note = new_file_note;};
 
         ~Storage() {
