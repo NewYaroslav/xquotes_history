@@ -52,10 +52,10 @@ namespace xquotes_history {
     template <class CANDLE_TYPE = Candle>
     class QuotesHistory : public Storage {
     private:
-        typedef std::array<CANDLE_TYPE, MINUTES_IN_DAY> candles_array_t;
-        //char *dictionary_buffer = NULL;    /**< Указатель на буффер для хранения словаря */
-        bool is_use_dictionary = false;
-        int price_type = PRICE_CLOSE;
+        typedef std::array<CANDLE_TYPE, MINUTES_IN_DAY> candles_array_t;    /**< Массив свечей */
+        bool is_use_dictionary = false; /**< Флаг использования словаря */
+        int price_type = PRICE_CLOSE;   /**< Тип используемой в хранилище цены */
+        int number_decimal_places_ = 0; /**< Количество знаков после запятой */
         std::string path_;
         std::string name_;
 
@@ -503,6 +503,11 @@ namespace xquotes_history {
             return OK;
         }
 
+        /** \brief Проверить метку времени
+         * \warning Данный метод проверяет только наличие дня, а не бара внутри дня
+         * \param timestamp метка времени
+         * \return вернет true, если метка времени существует
+         */
         bool check_timestamp(const xtime::timestamp_t timestamp) {
             return check_subfile(xtime::get_day(timestamp));
         }
@@ -749,6 +754,36 @@ namespace xquotes_history {
                     f(*this, candle, i, err);
                 } // for t
             } // for i
+            return OK;
+        }
+
+        /** \brief Получить количество знаков после запятой
+         * \param number_decimal_places количество знаков после запятой
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
+         */
+        int get_number_decimal_places(int &number_decimal_places) {
+            if(number_decimal_places_ != 0) {
+                number_decimal_places = number_decimal_places_;
+                return OK;
+            }
+            xtime::timestamp_t min_timestamp = 0;
+            xtime::timestamp_t max_timestamp = 0;
+            int err = get_min_max_start_day_timestamp(min_timestamp, max_timestamp);
+            max_timestamp += xtime::SECONDS_IN_DAY;
+            if(err != OK) return err;
+            const size_t MAX_CANDLES = 100;
+            std::vector<CANDLE_TYPE> candles;
+            for(xtime::timestamp_t t = min_timestamp; t < max_timestamp; t+= xtime::SECONDS_IN_MINUTE) {
+                CANDLE_TYPE candle;
+                int err = get_candle(candle, t);
+                if(err != OK && (candle.close != 0 || candle.open != 0 || candle.low != 0 || candle.high != 0)) {
+                    candles.push_back(candle);
+                }
+                if(candles.size() >= MAX_CANDLES) break;
+            }
+            if(candles.size() == 0) return DATA_NOT_AVAILABLE;
+            number_decimal_places = get_number_decimal_places(candles, false);
+            number_decimal_places_ = number_decimal_places;
             return OK;
         }
     };

@@ -24,6 +24,8 @@
 #ifndef XQUOTES_COMMON_HPP_INCLUDED
 #define XQUOTES_COMMON_HPP_INCLUDED
 
+#include <cstdlib>
+
 namespace xquotes_common {
     typedef unsigned short key_t;
     typedef unsigned long link_t;
@@ -91,23 +93,27 @@ namespace xquotes_common {
 
     /// Константы для настроек
     enum {
-        PRICE_CLOSE = 0,    ///< Использовать цену закрытия
-        PRICE_OPEN = 1,     ///< Использовать цену открытия
-        PRICE_OHLC = 2,     ///< Использовать все цены свечи без объемов
-        PRICE_OHLCV = 3,    ///< Использовать все цены свечи с объемом
-        PRICE_LOW = 4,      ///< Использовать наименьшую цену свечи
-        PRICE_HIGH = 5,     ///< Использовать наибольшую цену свечи
-        BUY = 1,            ///< Сделка на покупку
-        SELL = -1,          ///< Сделка на продажу
-        WIN = 1,            ///< Удачная сделка, победа
-        LOSS = -1,          ///< Убычтоная сделка, проигрыш
-        NEUTRAL = 0,        ///< Нейтральный результат
-        USE_COMPRESSION = 1,
-        DO_NOT_USE_COMPRESSION = 0,
-        CET_TO_GMT = 1,
-        EET_TO_GMT = 2,
-        GMT_TO_CET = 3,
-        GMT_TO_EET = 4,
+        PRICE_CLOSE = 0,            ///< Использовать цену закрытия
+        PRICE_OPEN = 1,             ///< Использовать цену открытия
+        PRICE_OHLC = 2,             ///< Использовать все цены свечи без объемов
+        PRICE_OHLCV = 3,            ///< Использовать все цены свечи с объемом
+        PRICE_LOW = 4,              ///< Использовать наименьшую цену свечи
+        PRICE_HIGH = 5,             ///< Использовать наибольшую цену свечи
+        BUY = 1,                    ///< Сделка на покупку
+        SELL = -1,                  ///< Сделка на продажу
+        WIN = 1,                    ///< Удачная сделка, победа
+        LOSS = -1,                  ///< Убычтоная сделка, проигрыш
+        NEUTRAL = 0,                ///< Нейтральный результат
+        USE_COMPRESSION = 1,        ///< Использовать сжатие файлов
+        DO_NOT_USE_COMPRESSION = 0, ///< Не использовать сжатие файлов
+        DO_NOT_CHANGE_TIME_ZONE = 0,///< Не менять часовой пояс
+        CET_TO_GMT = 1,             ///< Поменять часовой пояс с CET на GMT
+        EET_TO_GMT = 2,             ///< Поменять часовой пояс с EET на GMT
+        GMT_TO_CET = 3,             ///< Поменять часовой пояс с GMT на CET
+        GMT_TO_EET = 4,             ///< Поменять часовой пояс с GMT на EET
+        SKIPPING_BAD_CANDLES = 0,   ///< Пропускать бары или свечи с отсутствующими данными
+        FILLING_BAD_CANDLES = 1,    ///< Заполнять бары или свечи с отсутствующими данными предыдущим значением
+        WRITE_BAD_CANDLES = 2,      ///< Записывать как есть бары или свечи с отсутствующими данными
     };
 
     /// Набор возможных состояний ошибки
@@ -132,6 +138,67 @@ namespace xquotes_common {
         SUBFILES_DECOMPRESSION_ERROR = -22,     ///< Ошибка декомпрессии подфайла
         STRANGE_PROGRAM_BEHAVIOR = -23,
     };
+
+    /** \brief Сравнить две цены с заданной точностью
+     * \param a сравниваемая цена
+     * \param b сравниваемая цена
+     * \param accuracy точность, указывать число кратное 10
+     * \return вернет true если цены равны
+     */
+    bool compare_price(const double a, const double b, const int accuracy) {
+        const double MAX_DIFF = 1.0d/ (const double)(accuracy * (const int)10);
+        if(std::abs(a - b) > MAX_DIFF) return false;
+        return true;
+    }
+
+    /** \brief Огрубление цены
+     * \param price цена
+     * \param accuracy точность, указывать число кратное 10
+     * \return цена после огрубления
+     */
+    double coarsening_price(const double price, const int accuracy) {
+        const int temp = price * accuracy;
+        return temp / (double) accuracy;
+    }
+
+    /** \brief Получить число десятичных знаков после запятой
+     * \param input Входные данные
+     * \param is_factor При установке данного флага функция возвращает множитель
+     * \return количество знаков после запятой или множитель
+     */
+    template<class T>
+    int get_number_decimal_places(T& input, bool is_factor = false) {
+        int factor = 0, num = 1;
+        for(int n = 10; n < 1000000; n *= 10, num++) {
+            bool is_found = true;
+            factor = n;
+            for(int i = 0; i < (int)input.size(); ++i) {
+                if(input[i].close != 0) {
+                    if(compare_price(input[i].close, coarsening_price(input[i].close, n), n)) {
+                        is_found = false;
+                        break;
+                    }
+                }
+                if(input[i].open != 0) {
+                    if(compare_price(input[i].open, coarsening_price(input[i].open, n), n)) {
+                        is_found = false;
+                        break;
+                    }
+                }
+                if(input[i].low != 0) {
+                    if(compare_price(input[i].low, coarsening_price(input[i].low, n), n)) {
+                        is_found = false;
+                        break;
+                    }
+                }
+            }
+            if(is_found) {
+                break;
+            }
+        }
+        if(is_factor) return factor;
+        else return num;
+    }
 }
 
 #endif // XQUOTES_COMMON_HPP_INCLUDED
