@@ -421,6 +421,19 @@ namespace xquotes_history {
             name_ = element.back();
         }
 
+        /** \brief Установить отступ данных от дня загрузки
+         * Отсутп позволяет загрузить используемую область данных заранее
+         * Это позволит получать значения цены в пределах области без загрузки подфайлов
+         * При этом цесли цена выйдет за пределы области, то область сместится, произойдет подзагрузка
+         * недостающих данных
+         * \param indent_day_dn Отступ от даты загрузки в днях к началу исторических данных
+         * \param indent_day_up Отступ от даты загрузки в днях к концу исторических данных
+         */
+        void set_indent(const int indent_day_dn, const int indent_day_up) {
+            QuotesHistory::indent_day_up = indent_day_up;
+            QuotesHistory::indent_day_dn = indent_day_dn;
+        }
+
         ~QuotesHistory() {}
 
         /** \brief Записать массив свечей
@@ -758,10 +771,11 @@ namespace xquotes_history {
         }
 
         /** \brief Получить количество знаков после запятой
-         * \param number_decimal_places количество знаков после запятой
+         * \param number_decimal_places количество знаков после запятой (или множитель, если is_factor = true)
+         * \param is_factor При установке данного флага функция возвращает множитель
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int get_number_decimal_places(int &number_decimal_places) {
+        int get_number_decimal_places(int &number_decimal_places, const bool is_factor = false) {
             if(number_decimal_places_ != 0) {
                 number_decimal_places = number_decimal_places_;
                 return OK;
@@ -773,16 +787,20 @@ namespace xquotes_history {
             if(err != OK) return err;
             const size_t MAX_CANDLES = 100;
             std::vector<CANDLE_TYPE> candles;
+            CANDLE_TYPE old_candle;
             for(xtime::timestamp_t t = min_timestamp; t < max_timestamp; t+= xtime::SECONDS_IN_MINUTE) {
                 CANDLE_TYPE candle;
                 int err = get_candle(candle, t);
-                if(err != OK && (candle.close != 0 || candle.open != 0 || candle.low != 0 || candle.high != 0)) {
+                if( err == OK &&
+                    (candle.close != 0 || candle.open != 0 || candle.low != 0 || candle.high != 0) &&
+                    (old_candle.close != candle.close || old_candle.open != candle.open || old_candle.high != candle.high || old_candle.low != candle.low)) {
                     candles.push_back(candle);
+                    old_candle = candle;
                 }
                 if(candles.size() >= MAX_CANDLES) break;
             }
             if(candles.size() == 0) return DATA_NOT_AVAILABLE;
-            number_decimal_places = get_number_decimal_places(candles, false);
+            number_decimal_places = xquotes_common::get_number_decimal_places(candles, is_factor);
             number_decimal_places_ = number_decimal_places;
             return OK;
         }
@@ -798,6 +816,12 @@ namespace xquotes_history {
         xtime::timestamp_t min_timestamp = 0;                                              /**< Временная метка начала исторических данных по всем валютным парам */
         xtime::timestamp_t max_timestamp = std::numeric_limits<xtime::timestamp_t>::max(); /**< Временная метка конца исторических данных по всем валютным парам */
         bool is_init = false;
+
+        /** \brief Проверка выходного дня
+         */
+        static bool check_day_off(const key_t key) {
+            return xtime::is_day_off_for_day(key);
+        }
 
     public:
         MultipleQuotesHistory() {};
@@ -818,10 +842,40 @@ namespace xquotes_history {
                 xtime::timestamp_t symbol_min_timestamp = 0, symbol_max_timestamp = 0;
                 if(symbols[i]->get_min_max_start_day_timestamp(symbol_min_timestamp, symbol_max_timestamp) == OK) {
                     if(symbol_max_timestamp < max_timestamp) max_timestamp = symbol_max_timestamp;
-                    if(symbol_min_timestamp > min_timestamp) min_timestamp = symbol_max_timestamp;
+                    if(symbol_min_timestamp > min_timestamp) min_timestamp = symbol_min_timestamp;
                 }
             }
             is_init = true;
+        }
+
+        /** \brief Установить отступ данных от дня загрузки
+         * Отсутп позволяет загрузить используемую область данных заранее
+         * Это позволит получать значения цены в пределах области без загрузки подфайлов
+         * При этом цесли цена выйдет за пределы области, то область сместится, произойдет подзагрузка
+         * недостающих данных
+         * \param indent_day_dn Отступ от даты загрузки в днях к началу исторических данных
+         * \param indent_day_up Отступ от даты загрузки в днях к концу исторических данных
+         * \param symbol_indx Номер символа
+         * \return Вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
+         */
+        int set_indent(const int indent_day_dn, const int indent_day_up, const int symbol_indx) {
+            if(symbol_indx >= (int)symbols.size()) return INVALID_PARAMETER;
+            symbols[symbol_indx]->set_indent(indent_day_dn, indent_day_up);
+            return OK;
+        }
+
+        /** \brief Установить отступ данных от дня загрузки
+         * Отсутп позволяет загрузить используемую область данных заранее
+         * Это позволит получать значения цены в пределах области без загрузки подфайлов
+         * При этом цесли цена выйдет за пределы области, то область сместится, произойдет подзагрузка
+         * недостающих данных
+         * \param indent_day_dn Отступ от даты загрузки в днях к началу исторических данных
+         * \param indent_day_up Отступ от даты загрузки в днях к концу исторических данных
+         */
+        void set_indent(const int indent_day_dn, const int indent_day_up) {
+            for(size_t i = 0; i < symbols.size(); ++i) {
+                symbols[i]->set_indent(indent_day_dn, indent_day_up);
+            }
         }
 
         /** \brief Получить число символов в классе исторических данных
@@ -832,15 +886,15 @@ namespace xquotes_history {
         }
 
         /** \brief Узнать максимальную и минимальную метку времени
-         * \param min_timestamp метка времени в начале дня начала исторических данных
-         * \param max_timestamp метка времени в начале дня конца исторических данных
-         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
+         * \param min_timestamp Метка времени в начале дня начала исторических данных
+         * \param max_timestamp Метка времени в начале дня конца исторических данных
+         * \return Вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         inline int get_min_max_start_day_timestamp(
                 xtime::timestamp_t &min_timestamp,
                 xtime::timestamp_t &max_timestamp) {
-            MultipleQuotesHistory::min_timestamp = min_timestamp;
-            MultipleQuotesHistory::max_timestamp = max_timestamp;
+            min_timestamp = MultipleQuotesHistory::min_timestamp;
+            max_timestamp = MultipleQuotesHistory::max_timestamp;
             if(!is_init) return NO_INIT;
             return OK;
         }
@@ -854,7 +908,7 @@ namespace xquotes_history {
         inline int get_min_max_start_day_timestamp(
                 xtime::timestamp_t &min_timestamp,
                 xtime::timestamp_t &max_timestamp,
-                int symbol_indx) {
+                const int symbol_indx) {
             if(symbol_indx >= (int)symbols.size()) return INVALID_PARAMETER;
             return symbols[symbol_indx]->get_min_max_start_day_timestamp(min_timestamp, max_timestamp);
         }
@@ -868,7 +922,6 @@ namespace xquotes_history {
          * По умолчанию включена оптимизация последовательного считывания минут OPTIMIZATION_SEQUENTIAL_READING
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        template <typename T>
         int get_candle(
                 CANDLE_TYPE &candle,
                 const xtime::timestamp_t timestamp,
@@ -974,7 +1027,7 @@ namespace xquotes_history {
          * \param symbol_indx индекс символа
          * \return имя символа, если символ существует, иначе пустая строка
          */
-        inline std::string get_name(int symbol_indx) {
+        inline std::string get_name(const int symbol_indx) {
             if(symbol_indx >= (int)symbols.size()) return "";
             return symbols[symbol_indx]->get_name();
         }
@@ -983,7 +1036,7 @@ namespace xquotes_history {
          * \param symbol_indx индекс символа
          * \return директория файла символа, если символ существует, иначе пустая строка
          */
-        inline std::string get_path(int symbol_indx) {
+        inline std::string get_path(const int symbol_indx) {
             if(symbol_indx >= (int)symbols.size()) return "";
             return symbols[symbol_indx]->get_path();
         }
@@ -1006,44 +1059,46 @@ namespace xquotes_history {
                 bool is_day_off_filter = true,
                 bool is_go_back_in_time = true) {
             if(symbols.size() == 0) return DATA_NOT_AVAILABLE;
-            if(is_symbol.size() == symbols.size()) return INVALID_PARAMETER;
+            if(is_symbol.size() != symbols.size()) return INVALID_PARAMETER;
             std::vector<key_t> list_subfile;
             std::vector<key_t> old_list_subfile;
             int err = OK;
-            if(is_day_off_filter) {
-                for(size_t i = 0; i < symbols.size(); ++i) {
-                    if(!is_symbol[i]) continue;
-                    err = symbols[i]->get_subfile_list(
-                        xtime::get_day(start_timestamp),
-                        list_subfile,
-                        num_days,
-                        QuotesHistory<>::check_day_off,
-                        is_go_back_in_time);
-                    if((i > 0 && old_list_subfile != list_subfile) || err != OK) {
-                        break;
-                    }
-                    old_list_subfile = list_subfile;
+            auto filter_day = is_day_off_filter ? check_day_off : NULL;
+            for(size_t i = 0; i < symbols.size(); ++i) {
+                if(!is_symbol[i]) continue;
+                err = symbols[i]->get_subfile_list(
+                    xtime::get_day(start_timestamp),
+                    list_subfile,
+                    num_days,
+                    filter_day,
+                    is_go_back_in_time);
+                // если спики стали отличаться или есть ошибка
+                if((i > 0 && old_list_subfile != list_subfile) || err != OK) {
+                    if(old_list_subfile != list_subfile) err = STRANGE_PROGRAM_BEHAVIOR;
+                    break;
                 }
-            } else {
-                for(size_t i = 0; i < symbols.size(); ++i) {
-                    if(!is_symbol[i]) continue;
-                    err = symbols[i]->get_subfile_list(
-                        xtime::get_day(start_timestamp),
-                        list_subfile,
-                        num_days,
-                        NULL,
-                        is_go_back_in_time);
-                    if((i > 0 && old_list_subfile != list_subfile) || err != OK) {
-                        break;
-                    }
-                    old_list_subfile = list_subfile;
-                }
+                old_list_subfile = list_subfile;
             }
             if(err != OK) return err;
             list_timestamp.clear();
             for(size_t i = 0; i < list_subfile.size(); ++i) {
                 list_timestamp.push_back(list_subfile[i] * xtime::SECONDS_IN_DAY);
             }
+            return OK;
+        }
+
+        /** \brief Получить количество знаков после запятой символа
+         * \param number_decimal_places количество знаков после запятой
+         * \param symbol_indx индекс символа
+         * \param is_factor При установке данного флага функция возвращает множитель
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
+         */
+        int get_number_decimal_places(
+                int &number_decimal_places,
+                const int symbol_indx,
+                const bool is_factor = false) {
+            if(symbol_indx >= (int)symbols.size()) return INVALID_PARAMETER;
+            return symbols[symbol_indx]->get_number_decimal_places(number_decimal_places, is_factor);
             return OK;
         }
 
@@ -1063,15 +1118,15 @@ namespace xquotes_history {
                 const int step_timestamp,
                 const int num_days,
                 const std::vector<bool> &is_symbol,
-                std::function<void (
-                    const QuotesHistory<CANDLE_TYPE> &hist,
+                std::function<void(
+                    const MultipleQuotesHistory<CANDLE_TYPE> &hist,
                     const CANDLE_TYPE &candle,
                     const int day,
                     const int indx_symbol,
                     const int err)> f,
                 const bool is_day_off_filter = true,
                 const bool is_go_back_in_time = true) {
-            if(is_symbol.size() == symbols.size()) return INVALID_PARAMETER;
+            if(is_symbol.size() != symbols.size()) return INVALID_PARAMETER;
             std::vector<xtime::timestamp_t> list_timestamp;
             int err = get_start_day_timestamp_list(
                 list_timestamp,
@@ -1080,17 +1135,20 @@ namespace xquotes_history {
                 num_days,
                 is_day_off_filter,
                 is_go_back_in_time);
-            if(err != OK || list_timestamp.size() != num_days);
+            if(err != OK || (int)list_timestamp.size() != num_days);
+            int num_symbols = symbols.size();
             for(int i = 0; i < num_days; ++i) {
                 xtime::timestamp_t stop_timestamp = list_timestamp[i] + xtime::SECONDS_IN_DAY;
                 for(xtime::timestamp_t t = list_timestamp[i]; t < stop_timestamp; t += step_timestamp) {
-                    for(size_t s = 0; s < stop_timestamp; ++s) {
+                    for(int s = 0; s < num_symbols; ++s) {
+                        if(!is_symbol[s]) continue;
                         CANDLE_TYPE candle;
                         int err = get_candle(candle, t, s);
-                        f(*this, candle, i, err);
+                        f(*this, candle, i, s, err);
                     } // for s
                 } // for t
             } // for i
+            return OK;
         }
     };
 }

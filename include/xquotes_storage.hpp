@@ -476,7 +476,7 @@ namespace xquotes_storage {
          * \param key ключ подфайла, с кооторого будет начат поиск
          * \param list_subfile список файлов
          * \param f функтор для условия пропуска ключей подфайлов
-         * \param is_go_to_top идти к началу списка или к концу, если false
+         * \param is_go_to_beg идти к началу списка или к концу, если false
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         int get_subfile_list(
@@ -484,7 +484,7 @@ namespace xquotes_storage {
                 std::vector<key_t>& list_subfile,
                 const int num_subfile,
                 bool (*f)(const key_t key) = NULL,
-                bool is_go_to_top = true) {
+                bool is_go_to_beg = true) {
             if(subfiles.size() == 0) return DATA_NOT_AVAILABLE;
             auto subfiles_it = std::lower_bound(
                 subfiles.begin(),
@@ -496,10 +496,14 @@ namespace xquotes_storage {
             if(subfiles_it == subfiles.end()) {
                 return DATA_NOT_AVAILABLE;
             }
-            if(is_go_to_top) {
-                size_t indx = subfiles_it - subfiles.begin();
-                list_subfile.clear();
-                while(indx > 0 && (int)list_subfile.size() < num_subfile) {
+            int indx = (int)(subfiles_it - subfiles.begin());
+            list_subfile.clear();
+            if(is_go_to_beg) {
+                if(indx > 0 && subfiles[indx].key > key) {
+                    indx--;
+                } else
+                if(indx == 0 && subfiles[indx].key > key) return DATA_NOT_AVAILABLE;
+                while(indx >= 0 && (int)list_subfile.size() < num_subfile) {
                     if(f != NULL && f(subfiles[indx].key)) {
                         indx--;
                         continue;
@@ -509,9 +513,11 @@ namespace xquotes_storage {
                 }
                 std::reverse(list_subfile.begin(), list_subfile.end());
             } else {
-                size_t indx = subfiles.end() - subfiles_it;
-                list_subfile.clear();
-                while(indx < subfiles.size() && (int)list_subfile.size() < num_subfile) {
+                if(indx < ((int)subfiles.size() + 1) && subfiles[indx].key < key) {
+                    indx++;
+                } else
+                if(indx == ((int)subfiles.size() + 1) && subfiles[indx].key < key) return DATA_NOT_AVAILABLE;
+                while(indx < (int)subfiles.size() && (int)list_subfile.size() < num_subfile) {
                     if(f != NULL && f(subfiles[indx].key)) {
                         indx++;
                         continue;

@@ -41,9 +41,9 @@ int main(int argc, char *argv[]) {
     // парисм параметры
     for(int i = 1; i < argc; ++i) {
         std::string value = std::string(argv[i]);
-        if(value == "cet_to_gmt" || value == "-cetgmt") time_zone = xquotes_history::CET_TO_GMT;
+        if(value == "cet_to_gmt" || value == "-cetgmt" || value == "-finam") time_zone = xquotes_history::CET_TO_GMT;
         else
-        if(value == "eet_to_gmt" || value == "-eetgmt") time_zone = xquotes_history::EET_TO_GMT;
+        if(value == "eet_to_gmt" || value == "-eetgmt" || value == "-alpari") time_zone = xquotes_history::EET_TO_GMT;
         else
         if(value == "gmt_to_cet" || value == "-cetgmt") time_zone = xquotes_history::GMT_TO_CET;
         else

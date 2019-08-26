@@ -25,6 +25,7 @@
 #define XQUOTES_COMMON_HPP_INCLUDED
 
 #include <cstdlib>
+#include <cmath>
 
 namespace xquotes_common {
     typedef unsigned short key_t;
@@ -140,56 +141,64 @@ namespace xquotes_common {
     };
 
     /** \brief Сравнить две цены с заданной точностью
-     * \param a сравниваемая цена
-     * \param b сравниваемая цена
-     * \param accuracy точность, указывать число кратное 10
-     * \return вернет true если цены равны
+     * \param a Сравниваемая цена
+     * \param b Сравниваемая цена
+     * \param factor Множитель точности, указывать число кратное 10 (10,100,1000 и т.д.)
+     * \return Вернет true если цены равны
      */
-    bool compare_price(const double a, const double b, const int accuracy) {
-        const double MAX_DIFF = 1.0d/ (const double)(accuracy * (const int)10);
-        if(std::abs(a - b) > MAX_DIFF) return false;
-        return true;
+    inline bool compare_price(const double a, const double b, const int factor) {
+        const double MAX_DIFF = 1.0d/ (const double)(factor * (const int)10);
+        if(std::abs(a - b) < MAX_DIFF) return true;
+        return false;
+    }
+
+    /** \brief Получить дробную часть
+     * \param price Цена
+     * \param precision Точность, указатьколичество знаков после запятой (если is_factor = false) или множитель
+     * \param is_factor Если true то функция принимает множитель
+     * \return Вернет дробную часть
+     */
+    inline int get_fractional(const double price, const int precision, const bool is_factor = false) {
+        if(is_factor) return (int)((price - std::floor(price)) * precision);
+        else return (int)((price - std::floor(price)) * std::pow(10, precision));
     }
 
     /** \brief Огрубление цены
-     * \param price цена
-     * \param accuracy точность, указывать число кратное 10
-     * \return цена после огрубления
+     * \param price Цена
+     * \param precision Точность, указывать число кратное 10
+     * \param is_factor Если true то функция принимает множитель
+     * \return Цена после огрубления
      */
-    double coarsening_price(const double price, const int accuracy) {
-        const int temp = price * accuracy;
-        return temp / (double) accuracy;
+    inline double coarsening_price(const double price, const int precision, const bool is_factor = false) {
+        if(is_factor) {
+            const int temp = price * (double)precision + 0.5;
+            return (double) temp / (double) precision;
+        } else {
+            int factor = std::pow(10, precision);
+            const int temp = price * (double)factor + 0.5;
+            return (double) temp / (double) factor;
+        }
     }
 
     /** \brief Получить число десятичных знаков после запятой
      * \param input Входные данные
-     * \param is_factor При установке данного флага функция возвращает множитель
-     * \return количество знаков после запятой или множитель
+     * \param is_factor Если true то функция возвращает множитель
+     * \return Количество знаков после запятой или множитель
      */
     template<class T>
-    int get_number_decimal_places(T& input, bool is_factor = false) {
+    int get_number_decimal_places(T& input, const bool is_factor = false) {
         int factor = 0, num = 1;
         for(int n = 10; n < 1000000; n *= 10, num++) {
             bool is_found = true;
             factor = n;
             for(int i = 0; i < (int)input.size(); ++i) {
-                if(input[i].close != 0) {
-                    if(compare_price(input[i].close, coarsening_price(input[i].close, n), n)) {
-                        is_found = false;
-                        break;
-                    }
-                }
-                if(input[i].open != 0) {
-                    if(compare_price(input[i].open, coarsening_price(input[i].open, n), n)) {
-                        is_found = false;
-                        break;
-                    }
-                }
-                if(input[i].low != 0) {
-                    if(compare_price(input[i].low, coarsening_price(input[i].low, n), n)) {
-                        is_found = false;
-                        break;
-                    }
+                if(
+                (input[i].close != 0 && !compare_price(input[i].close, coarsening_price(input[i].close, n, true), n)) ||
+                (input[i].open != 0 && !compare_price(input[i].open, coarsening_price(input[i].open, n, true), n)) ||
+                (input[i].low != 0 && !compare_price(input[i].low, coarsening_price(input[i].low, n, true), n)) ||
+                (input[i].high != 0 && !compare_price(input[i].high, coarsening_price(input[i].high, n, true), n))) {
+                    is_found = false;
+                    break;
                 }
             }
             if(is_found) {

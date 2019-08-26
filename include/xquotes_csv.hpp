@@ -189,11 +189,11 @@ namespace xquotes_csv {
     bool validation_candles(Candle &candle) {
         if(candle.close == 0 || candle.open == 0 || candle.low == 0 || candle.high == 0) {
             double price =
-                candle.low != 0 ?
-                candle.low : candle.high != 0 ?
-                candle.high : candle.open != 0 ?
-                candle.open : candle.close != 0 ?
-                candle.close : 0.0;
+                candle.close != 0 ?
+                candle.close : candle.high != 0 ?
+                candle.high : candle.low != 0 ?
+                candle.low : candle.open != 0 ?
+                candle.open : 0.0;
             if(price == 0.0) return false;
             candle.open = price;
             candle.high = price;
@@ -274,7 +274,7 @@ namespace xquotes_csv {
                     if(timestamp > stop_timestamp) break;
                     continue;
                 }
-                candle = old_candle;
+                candle.open = candle.high = candle.low = candle.close = old_candle.close;
                 candle.timestamp = timestamp;
             } else {
                 old_candle = candle;
