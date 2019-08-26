@@ -186,7 +186,7 @@ namespace xquotes_common {
      * \return Количество знаков после запятой или множитель
      */
     template<class T>
-    int get_number_decimal_places(T& input, const bool is_factor = false) {
+    int get_decimal_places(T& input, const bool is_factor = false) {
         int factor = 0, num = 1;
         for(int n = 10; n < 1000000; n *= 10, num++) {
             bool is_found = true;

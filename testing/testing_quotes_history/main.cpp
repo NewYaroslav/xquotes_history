@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
 
     std::cout << "start day timestamp list" << std::endl;
     std::vector<xtime::timestamp_t> list_timestamp;
-    int err_list = iQuotesHistory.get_start_day_timestamp_list(
+    int err_list = iQuotesHistory.get_day_timestamp_list(
         list_timestamp,
         xtime::get_timestamp(1, 3, 2018),
         10);

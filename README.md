@@ -66,7 +66,7 @@ std::cout << "num symbols: " << iMultipleQuotesHistory.get_num_symbols() << std:
 
 // получаем минимальную и максимальную дату начала дня котировок (т.е. например с 1.1.2017 00:00:00 по 31.12.2017 00:00:00)
 xtime::timestamp_t min_timestamp = 0, max_timestamp = 0;
-iMultipleQuotesHistory.get_min_max_start_day_timestamp(min_timestamp, max_timestamp);
+iMultipleQuotesHistory.get_min_max_day_timestamp(min_timestamp, max_timestamp);
 std::cout << "start day timestamp: " << xtime::get_str_date_time(min_timestamp) << " - " << xtime::get_str_date_time(max_timestamp) << std::endl;
 
 // читаем бар из AUDCHF

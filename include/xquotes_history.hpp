@@ -33,6 +33,11 @@
 #include "xquotes_storage.hpp"
 #include <array>
 #include <functional>
+#ifndef XQUOTES_DO_NOT_USE_THREAD
+#include <thread>
+#include <mutex>
+#endif
+
 // подключаем словари для сжатия файлов
 #include "xquotes_dictionary_candles.hpp"
 #include "xquotes_dictionary_candles_with_volumes.hpp"
@@ -55,7 +60,7 @@ namespace xquotes_history {
         typedef std::array<CANDLE_TYPE, MINUTES_IN_DAY> candles_array_t;    /**< Массив свечей */
         bool is_use_dictionary = false; /**< Флаг использования словаря */
         int price_type = PRICE_CLOSE;   /**< Тип используемой в хранилище цены */
-        int number_decimal_places_ = 0; /**< Количество знаков после запятой */
+        int decimal_places_ = 0;        /**< Количество знаков после запятой */
         std::string path_;
         std::string name_;
 
@@ -663,7 +668,7 @@ namespace xquotes_history {
          * \param max_timestamp метка времени в начале дня конца исторических данных
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int get_min_max_start_day_timestamp(xtime::timestamp_t &min_timestamp, xtime::timestamp_t &max_timestamp) {
+        int get_min_max_day_timestamp(xtime::timestamp_t &min_timestamp, xtime::timestamp_t &max_timestamp) {
             key_t key_min, key_max;
             int err = get_min_max_key(key_min, key_max);
             if(err == OK) {
@@ -673,16 +678,19 @@ namespace xquotes_history {
             return err;
         }
 
-        /** \brief Получить список меток времени начала дня начиная с заданной метки вреемни поиска
-         * \warning метка времени start_timestamp (начало дня) входит в список list_timestamp!
-         * \param list_timestamp список меток времени начала дня для всех дней, начиная с указанной метки времени
+        /** \brief Получить список дней начиная с заданной метки времени
+         * Данный метод позволяет получить список дней, котировки которых можно использовать
+         * Список будет содержать метки времени начала дня
+         * В список попадает также и день, метка врмени которого указана для поиска (если котировки данного дня существуют)
+         * \warning начало дня метки времени start_timestamp входит в список list_timestamp!
+         * \param list_timestamp список меток времени начала дня для всех дней начиная с указанной метки времени
          * \param start_timestamp метка времени начала поиска дней для списка
          * \param num_days максимальное количество дней в списке
          * \param is_day_off_filter если true, идет пропуск выходных дней
          * \param is_go_back_in_time если true, от метки времени идет поиск в глубь истории
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int get_start_day_timestamp_list(
+        int get_day_timestamp_list(
                 std::vector<xtime::timestamp_t>& list_timestamp,
                 const xtime::timestamp_t start_timestamp,
                 const int num_days,
@@ -713,26 +721,35 @@ namespace xquotes_history {
             return OK;
         }
 
+        /** \brief Торговать
+         * \warning метка времени start_timestamp (весь день) входит в диапазон торговли!
+         * \param start_timestamp метка времени начала торговли
+         * \param stop_timestamp метка времени конца торговли
+         * \param step_timestamp шаг метки времени (для минутного таймфрейма xtime::SECONDS_IN_MINUTE)
+         * \param f лямбла-функция для обработки торговли
+         * \param is_day_off_filter если true, используется фильтр торговли в выходные дни
+         * \param is_go_back_in_time проход поиска дней торговли совершается вглубь истории, если true
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
+         */
         int trade(
                 const xtime::timestamp_t start_timestamp,
                 const xtime::timestamp_t stop_timestamp,
                 const int step_timestamp,
                 std::function<void (
-                    const QuotesHistory<CANDLE_TYPE> &hist,
                     const CANDLE_TYPE &candle,
                     const int err)> f) {
             for(xtime::timestamp_t t = start_timestamp; t <= stop_timestamp; t += step_timestamp) {
                 CANDLE_TYPE candle;
                 int err = get_candle(candle, t);
-                //f(candle, err);
-                f(*this, candle, err);
+                f(candle, err);
             }
             return OK;
         }
 
         /** \brief Торговать
          * \warning метка времени start_timestamp (весь день) входит в диапазон торговли!
-         * \param start_timestamp метка времени начала поиска дней торговли
+         * \param start_timestamp метка времени поиска начала торговли
+         * (начиная с дня метки времени будет запущена торговля)
          * \param step_timestamp шаг метки времени (для минутного таймфрейма xtime::SECONDS_IN_MINUTE)
          * \param num_days количество дней для торговли
          * \param f лямбла-функция для обработки торговли
@@ -745,14 +762,13 @@ namespace xquotes_history {
                 const int step_timestamp,
                 const int num_days,
                 std::function<void (
-                    const QuotesHistory<CANDLE_TYPE> &hist,
                     const CANDLE_TYPE &candle,
                     const int day,
                     const int err)> f,
                 const bool is_day_off_filter = true,
                 const bool is_go_back_in_time = true) {
             std::vector<xtime::timestamp_t> list_timestamp;
-            int err = get_start_day_timestamp_list(
+            int err = get_day_timestamp_list(
                 start_timestamp,
                 list_timestamp,
                 num_days,
@@ -764,25 +780,25 @@ namespace xquotes_history {
                 for(xtime::timestamp_t t = list_timestamp[i]; t < stop_timestamp; t += step_timestamp) {
                     CANDLE_TYPE candle;
                     int err = get_candle(candle, t);
-                    f(*this, candle, i, err);
+                    f(candle, i, err);
                 } // for t
             } // for i
             return OK;
         }
 
         /** \brief Получить количество знаков после запятой
-         * \param number_decimal_places количество знаков после запятой (или множитель, если is_factor = true)
+         * \param decimal_places количество знаков после запятой (или множитель, если is_factor = true)
          * \param is_factor При установке данного флага функция возвращает множитель
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int get_number_decimal_places(int &number_decimal_places, const bool is_factor = false) {
-            if(number_decimal_places_ != 0) {
-                number_decimal_places = number_decimal_places_;
+        int get_decimal_places(int &decimal_places, const bool is_factor = false) {
+            if(decimal_places_ != 0) {
+                decimal_places = decimal_places_;
                 return OK;
             }
             xtime::timestamp_t min_timestamp = 0;
             xtime::timestamp_t max_timestamp = 0;
-            int err = get_min_max_start_day_timestamp(min_timestamp, max_timestamp);
+            int err = get_min_max_day_timestamp(min_timestamp, max_timestamp);
             max_timestamp += xtime::SECONDS_IN_DAY;
             if(err != OK) return err;
             const size_t MAX_CANDLES = 100;
@@ -800,8 +816,8 @@ namespace xquotes_history {
                 if(candles.size() >= MAX_CANDLES) break;
             }
             if(candles.size() == 0) return DATA_NOT_AVAILABLE;
-            number_decimal_places = xquotes_common::get_number_decimal_places(candles, is_factor);
-            number_decimal_places_ = number_decimal_places;
+            decimal_places = xquotes_common::get_decimal_places(candles, is_factor);
+            decimal_places_ = decimal_places;
             return OK;
         }
     };
@@ -840,7 +856,7 @@ namespace xquotes_history {
             }
             for(size_t i = 0; i < paths.size(); ++i) {
                 xtime::timestamp_t symbol_min_timestamp = 0, symbol_max_timestamp = 0;
-                if(symbols[i]->get_min_max_start_day_timestamp(symbol_min_timestamp, symbol_max_timestamp) == OK) {
+                if(symbols[i]->get_min_max_day_timestamp(symbol_min_timestamp, symbol_max_timestamp) == OK) {
                     if(symbol_max_timestamp < max_timestamp) max_timestamp = symbol_max_timestamp;
                     if(symbol_min_timestamp > min_timestamp) min_timestamp = symbol_min_timestamp;
                 }
@@ -890,7 +906,7 @@ namespace xquotes_history {
          * \param max_timestamp Метка времени в начале дня конца исторических данных
          * \return Вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        inline int get_min_max_start_day_timestamp(
+        inline int get_min_max_day_timestamp(
                 xtime::timestamp_t &min_timestamp,
                 xtime::timestamp_t &max_timestamp) {
             min_timestamp = MultipleQuotesHistory::min_timestamp;
@@ -905,7 +921,7 @@ namespace xquotes_history {
          * \param symbol_indx номер символа
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        inline int get_min_max_start_day_timestamp(
+        inline int get_min_max_day_timestamp(
                 xtime::timestamp_t &min_timestamp,
                 xtime::timestamp_t &max_timestamp,
                 const int symbol_indx) {
@@ -1051,7 +1067,7 @@ namespace xquotes_history {
          * \param is_go_back_in_time если true, от метки времени идет поиск в глубь истории
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int get_start_day_timestamp_list(
+        int get_day_timestamp_list(
                 std::vector<xtime::timestamp_t>& list_timestamp,
                 const xtime::timestamp_t start_timestamp,
                 const std::vector<bool> &is_symbol,
@@ -1088,23 +1104,24 @@ namespace xquotes_history {
         }
 
         /** \brief Получить количество знаков после запятой символа
-         * \param number_decimal_places количество знаков после запятой
+         * \param decimal_places количество знаков после запятой
          * \param symbol_indx индекс символа
          * \param is_factor При установке данного флага функция возвращает множитель
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int get_number_decimal_places(
-                int &number_decimal_places,
+        int get_decimal_places(
+                int &decimal_places,
                 const int symbol_indx,
                 const bool is_factor = false) {
             if(symbol_indx >= (int)symbols.size()) return INVALID_PARAMETER;
-            return symbols[symbol_indx]->get_number_decimal_places(number_decimal_places, is_factor);
+            return symbols[symbol_indx]->get_decimal_places(decimal_places, is_factor);
             return OK;
         }
 
         /** \brief Торговать
          * \warning метка времени start_timestamp (весь день) входит в диапазон торговли!
-         * \param start_timestamp метка времени начала поиска дней торговли
+         * \param start_timestamp метка времени поиска начала торговли
+         * (начиная с дня метки времени будет запущена торговля)
          * \param step_timestamp шаг метки времени (для минутного таймфрейма xtime::SECONDS_IN_MINUTE)
          * \param num_days количество дней для торговли
          * \param is_symbol список флагов, разрешающих торговлю на конкретном символе
@@ -1119,24 +1136,24 @@ namespace xquotes_history {
                 const int num_days,
                 const std::vector<bool> &is_symbol,
                 std::function<void(
-                    const MultipleQuotesHistory<CANDLE_TYPE> &hist,
                     const CANDLE_TYPE &candle,
                     const int day,
-                    const int indx_symbol,
+                    const int symbol_indx,
                     const int err)> f,
                 const bool is_day_off_filter = true,
                 const bool is_go_back_in_time = true) {
             if(is_symbol.size() != symbols.size()) return INVALID_PARAMETER;
             std::vector<xtime::timestamp_t> list_timestamp;
-            int err = get_start_day_timestamp_list(
+            int err = get_day_timestamp_list(
                 list_timestamp,
                 start_timestamp,
                 is_symbol,
                 num_days,
                 is_day_off_filter,
                 is_go_back_in_time);
-            if(err != OK || (int)list_timestamp.size() != num_days);
-            int num_symbols = symbols.size();
+
+            if(err != OK || (int)list_timestamp.size() != num_days) return DATA_NOT_AVAILABLE;
+            const int num_symbols = symbols.size();
             for(int i = 0; i < num_days; ++i) {
                 xtime::timestamp_t stop_timestamp = list_timestamp[i] + xtime::SECONDS_IN_DAY;
                 for(xtime::timestamp_t t = list_timestamp[i]; t < stop_timestamp; t += step_timestamp) {
@@ -1144,12 +1161,88 @@ namespace xquotes_history {
                         if(!is_symbol[s]) continue;
                         CANDLE_TYPE candle;
                         int err = get_candle(candle, t, s);
-                        f(*this, candle, i, s, err);
+                        f(candle, i, s, err);
                     } // for s
                 } // for t
             } // for i
             return OK;
         }
+
+#       ifndef XQUOTES_DO_NOT_USE_THREAD
+        /** \brief Торговать в несколько потоков
+         * \warning метка времени start_timestamp (весь день) входит в диапазон торговли!
+         * \param start_timestamp метка времени поиска начала торговли
+         * (начиная с дня метки времени будет запущена торговля)
+         * \param step_timestamp шаг метки времени (для минутного таймфрейма xtime::SECONDS_IN_MINUTE)
+         * \param num_days количество дней для торговли
+         * \param is_symbol список флагов, разрешающих торговлю на конкретном символе
+         * \param f лямбда-функция для обработки торговли
+         * \param is_day_off_filter если true, используется фильтр торговли в выходные дни
+         * \param is_go_back_in_time проход поиска дней торговли совершается вглубь истории, если true
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
+         */
+        int trade_multiple_threads(
+                const xtime::timestamp_t start_timestamp,
+                const int step_timestamp,
+                const int num_days,
+                const std::vector<bool> &is_symbol,
+                std::function<void(
+                    const CANDLE_TYPE &candle,
+                    const int day,
+                    const int symbol_indx,
+                    const int thread_indx,
+                    const int err)> f,
+                const bool is_day_off_filter = true,
+                const bool is_go_back_in_time = true) {
+            if(is_symbol.size() != symbols.size()) return INVALID_PARAMETER;
+            std::vector<xtime::timestamp_t> list_timestamp;
+            int err = get_day_timestamp_list(
+                list_timestamp,
+                start_timestamp,
+                is_symbol,
+                num_days,
+                is_day_off_filter,
+                is_go_back_in_time);
+
+            if(err != OK || (int)list_timestamp.size() != num_days) return DATA_NOT_AVAILABLE;
+
+            // создаем новый список символов с учетом фильтра символов
+            const int num_symbols = symbols.size();
+            std::vector<int> list_symbol_indx;
+            for(int s = 0; s < num_symbols; ++s) {
+                if(!is_symbol[s]) continue;
+                list_symbol_indx.push_back(s);
+            }
+            const int num_list_symbol = list_symbol_indx.size();
+
+            // получаем максимальное количество потоков процессора и создаем массив потоков
+            const int num_hardware_thread = std::thread::hardware_concurrency();
+            const int num_thread = std::min((int)list_symbol_indx.size(),num_hardware_thread);
+            std::vector<std::thread> list_thread;
+            list_thread.resize(num_thread);
+
+            for(int thread_indx = 0; thread_indx < num_thread; ++thread_indx) {
+                list_thread[thread_indx] = std::thread([&, thread_indx, num_thread]() {
+                    for(int i = 0; i < num_days; ++i) {
+                        xtime::timestamp_t stop_timestamp = list_timestamp[i] + xtime::SECONDS_IN_DAY;
+                        for(xtime::timestamp_t t = list_timestamp[i]; t < stop_timestamp; t += step_timestamp) {
+                            for(int s = thread_indx; s < num_list_symbol; s += num_thread) {
+                                int symbol_indx = list_symbol_indx[s];
+                                CANDLE_TYPE candle;
+                                int err = get_candle(candle, t, symbol_indx);
+                                f(candle, i, symbol_indx, thread_indx, err);
+                            } // for s
+                        } // for t
+                    } // for i
+                }); // std::thread
+            } // for thread_indx
+            for(size_t i = 0; i < list_thread.size(); ++i) {
+                list_thread[i].join();
+            }
+            return OK;
+        }
+#       endif
+
     };
 }
 
