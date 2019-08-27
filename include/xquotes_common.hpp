@@ -140,6 +140,15 @@ namespace xquotes_common {
         STRANGE_PROGRAM_BEHAVIOR = -23,
     };
 
+    /** \brief Получить тип цены с указанием специфики
+     * \param price_type Тип цены (данную функицю имеет смысл использовать с PRICE_OHLC)
+     * \param currency_pair Номер валютной пары (0 - нет специфики)
+     * \return Тип цены с указанием специфики
+     */
+    inline int get_price_type_with_specific(const int price_type, const int currency_pair) {
+        return (price_type & 0x0F) | ((currency_pair << 8) & 0xFF00);
+    }
+
     /** \brief Сравнить две цены с заданной точностью
      * \param a Сравниваемая цена
      * \param b Сравниваемая цена

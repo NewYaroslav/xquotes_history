@@ -42,6 +42,38 @@
 #include "xquotes_dictionary_candles.hpp"
 #include "xquotes_dictionary_candles_with_volumes.hpp"
 #include "xquotes_dictionary_only_one_price.hpp"
+// словари под конкретные валютные пары
+#include "dictionary_currency_pair/xquotes_dictionary_candles_audcad.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_audchf.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_audjpy.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_audnzd.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_audusd.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_cadchf.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_cadjpy.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_chfjpy.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_euraud.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_eurcad.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_eurchf.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_eurgbp.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_eurjpy.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_eurnok.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_eurnzd.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_eurusd.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_gbpaud.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_gbpcad.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_gbpchf.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_gbpjpy.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_gbpnok.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_gbpnzd.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_gbpusd.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_nzdcad.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_nzdjpy.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_nzdusd.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_usdcad.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_usdchf.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_usdjpy.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_usdnok.hpp"
+#include "dictionary_currency_pair/xquotes_dictionary_candles_usdpln.hpp"
 
 namespace xquotes_history {
     using namespace xquotes_common;
@@ -60,6 +92,7 @@ namespace xquotes_history {
         typedef std::array<CANDLE_TYPE, MINUTES_IN_DAY> candles_array_t;    /**< Массив свечей */
         bool is_use_dictionary = false; /**< Флаг использования словаря */
         int price_type = PRICE_CLOSE;   /**< Тип используемой в хранилище цены */
+        int currency_pair = 0;          /**< Валютная пара */
         int decimal_places_ = 0;        /**< Количество знаков после запятой */
         std::string path_;
         std::string name_;
@@ -344,16 +377,20 @@ namespace xquotes_history {
          * \param user_price_type пользовательная настройка цены
          */
         void update_file_notes(const int user_price_type) {
-            const unsigned int NOTES_MASK = 0x0F;
+            const unsigned int PRICE_TYPE_NOTES_MASK = 0x0F;
             const unsigned int COMPRESSION_BIT = 0x10;
+            const unsigned int PRICE_TYPE_PAIR_MASK = 0xFF00;
             if(get_num_subfiles() == 0) {
                 note_t notes = is_use_dictionary ? COMPRESSION_BIT : 0x00;
-                notes |= user_price_type & NOTES_MASK;
+                notes |= user_price_type & PRICE_TYPE_NOTES_MASK;
+                notes |= (user_price_type & PRICE_TYPE_PAIR_MASK);
                 set_file_note(notes);
-                QuotesHistory::price_type = user_price_type;
+                QuotesHistory::price_type = user_price_type & PRICE_TYPE_NOTES_MASK;
+                QuotesHistory::currency_pair = (user_price_type & PRICE_TYPE_PAIR_MASK) >> 8;
             } else {
                 note_t notes = get_file_note();
-                QuotesHistory::price_type = notes & NOTES_MASK;
+                QuotesHistory::price_type = notes & PRICE_TYPE_NOTES_MASK;
+                QuotesHistory::currency_pair = (notes & PRICE_TYPE_PAIR_MASK) >> 8;
                 is_use_dictionary = notes & COMPRESSION_BIT ? true : false;
             }
         }
@@ -370,51 +407,145 @@ namespace xquotes_history {
 
         /** \brief Инициализировать класс
          * \param path директория с файлами исторических данных
-         * \param price_type тип цены (на выбор: PRICE_CLOSE, PRICE_OHLC, PRICE_OHLCV)
+         * \param user_price_type тип цены (на выбор: PRICE_CLOSE, PRICE_OHLC, PRICE_OHLCV)
          * \param dictionary_file файл словаря (если указано "", то считываются несжатые файлы)
          */
-        QuotesHistory(const std::string path, const int price_type, const std::string dictionary_file = "") :
+        QuotesHistory(const std::string path, const int user_price_type, const std::string dictionary_file = "") :
                 Storage(path, dictionary_file), path_(path) {
             std::vector<std::string> element;
             bf::parse_path(path, element);
             name_ = element.back();
             if(dictionary_file.size() > 0) is_use_dictionary = true;
-            update_file_notes(price_type);
+            update_file_notes(user_price_type);
         }
 
         /** \brief Инициализировать класс
          * \param path путь к файлу с данными
-         * \param price_type тип цены (на выбор: PRICE_CLOSE, PRICE_OHLC, PRICE_OHLCV)
+         * \param user_price_type тип цены (на выбор: PRICE_CLOSE, PRICE_OHLC, PRICE_OHLCV)
          * \param dictionary_buffer указатель на буфер словаря
          * \param dictionary_buffer_size размер буфера словаря
          */
-        QuotesHistory(const std::string path, const int price_type, const char *dictionary_buffer, const size_t dictionary_buffer_size) :
+        QuotesHistory(const std::string path, const int user_price_type, const char *dictionary_buffer, const size_t dictionary_buffer_size) :
                 Storage(path, dictionary_buffer, dictionary_buffer_size), path_(path) {
             std::vector<std::string> element;
             bf::parse_path(path, element);
             name_ = element.back();
             is_use_dictionary = true;
-            update_file_notes(price_type);
+            update_file_notes(user_price_type);
         }
 
         /** \brief Инициализировать класс
          * \param path путь к файлу с данными
-         * \param price_type тип цены (на выбор: PRICE_CLOSE, PRICE_OHLC, PRICE_OHLCV)
+         * \param price_type тип цены (на выбор: PRICE_CLOSE, PRICE_OHLC, PRICE_OHLCV или PRICE_OHLC_AUDCAD и пр..)
          * \param option настройки хранилища котировок (использовать сжатие  - USE_COMPRESSION, иначе DO_NOT_USE_COMPRESSION)
          */
-        QuotesHistory(const std::string path, const int price_type, const int option) :
+        QuotesHistory(const std::string path, const int user_price_type, const int option) :
                 Storage(path), path_(path) {
             if(option == USE_COMPRESSION) is_use_dictionary = true;
-            update_file_notes(price_type);
-            if(is_use_dictionary) {
-                // очень важно использовать здесь объект класса, а не параметр функции!
+            update_file_notes(user_price_type);
+            if(is_use_dictionary && currency_pair == 0) {
                 switch (QuotesHistory::price_type){
                 case PRICE_CLOSE:
                 case PRICE_OPEN:
                     set_dictionary((const char*)dictionary_only_one_price, sizeof(dictionary_only_one_price));
                     break;
                 case PRICE_OHLC:
-                    set_dictionary((const char*)dictionary_candles, sizeof(dictionary_candles));
+                    switch (QuotesHistory::currency_pair){
+                    default:
+                    case 0:
+                        set_dictionary((const char*)dictionary_candles, sizeof(dictionary_candles));
+                        break;
+                    case USE_DICTIONARY_AUDCAD:
+                        set_dictionary((const char*)dictionary_candles_audcad, sizeof(dictionary_candles_audcad));
+                        break;
+                    case USE_DICTIONARY_AUDCHF:
+                        set_dictionary((const char*)dictionary_candles_audchf, sizeof(dictionary_candles_audchf));
+                        break;
+                    case USE_DICTIONARY_AUDJPY:
+                        set_dictionary((const char*)dictionary_candles_audjpy, sizeof(dictionary_candles_audjpy));
+                        break;
+                    case USE_DICTIONARY_AUDNZD:
+                        set_dictionary((const char*)dictionary_candles_audnzd, sizeof(dictionary_candles_audnzd));
+                        break;
+                    case USE_DICTIONARY_AUDUSD:
+                        set_dictionary((const char*)dictionary_candles_audusd, sizeof(dictionary_candles_audusd));
+                        break;
+                    case USE_DICTIONARY_CADCHF:
+                        set_dictionary((const char*)dictionary_candles_cadchf, sizeof(dictionary_candles_cadchf));
+                        break;
+                    case USE_DICTIONARY_CADJPY:
+                        set_dictionary((const char*)dictionary_candles_cadjpy, sizeof(dictionary_candles_cadjpy));
+                        break;
+                    case USE_DICTIONARY_CHFJPY:
+                        set_dictionary((const char*)dictionary_candles_chfjpy, sizeof(dictionary_candles_chfjpy));
+                        break;
+                    case USE_DICTIONARY_EURAUD:
+                        set_dictionary((const char*)dictionary_candles_euraud, sizeof(dictionary_candles_euraud));
+                        break;
+                    case USE_DICTIONARY_EURCAD:
+                        set_dictionary((const char*)dictionary_candles_eurcad, sizeof(dictionary_candles_eurcad));
+                        break;
+                    case USE_DICTIONARY_EURCHF:
+                        set_dictionary((const char*)dictionary_candles_eurchf, sizeof(dictionary_candles_eurchf));
+                        break;
+                    case USE_DICTIONARY_EURGBP:
+                        set_dictionary((const char*)dictionary_candles_eurgbp, sizeof(dictionary_candles_eurgbp));
+                        break;
+                    case USE_DICTIONARY_EURJPY:
+                        set_dictionary((const char*)dictionary_candles_eurjpy, sizeof(dictionary_candles_eurjpy));
+                        break;
+                    case USE_DICTIONARY_EURNOK:
+                        set_dictionary((const char*)dictionary_candles_eurnok, sizeof(dictionary_candles_eurnok));
+                        break;
+                    case USE_DICTIONARY_EURUSD:
+                        set_dictionary((const char*)dictionary_candles_eurusd, sizeof(dictionary_candles_eurusd));
+                        break;
+                    case USE_DICTIONARY_GBPAUD:
+                        set_dictionary((const char*)dictionary_candles_gbpaud, sizeof(dictionary_candles_gbpaud));
+                        break;
+                    case USE_DICTIONARY_GBPCAD:
+                        set_dictionary((const char*)dictionary_candles_gbpcad, sizeof(dictionary_candles_gbpcad));
+                        break;
+                    case USE_DICTIONARY_GBPCHF:
+                        set_dictionary((const char*)dictionary_candles_gbpchf, sizeof(dictionary_candles_gbpchf));
+                        break;
+                    case USE_DICTIONARY_GBPJPY:
+                        set_dictionary((const char*)dictionary_candles_gbpjpy, sizeof(dictionary_candles_gbpjpy));
+                        break;
+                    case USE_DICTIONARY_GBPNOK:
+                        set_dictionary((const char*)dictionary_candles_gbpnok, sizeof(dictionary_candles_gbpnok));
+                        break;
+                    case USE_DICTIONARY_GBPNZD:
+                        set_dictionary((const char*)dictionary_candles_gbpnzd, sizeof(dictionary_candles_gbpnzd));
+                        break;
+                    case USE_DICTIONARY_GBPUSD:
+                        set_dictionary((const char*)dictionary_candles_gbpusd, sizeof(dictionary_candles_gbpusd));
+                        break;
+                    case USE_DICTIONARY_NZDCAD:
+                        set_dictionary((const char*)dictionary_candles_nzdcad, sizeof(dictionary_candles_nzdcad));
+                        break;
+                    case USE_DICTIONARY_NZDJPY:
+                        set_dictionary((const char*)dictionary_candles_nzdjpy, sizeof(dictionary_candles_nzdjpy));
+                        break;
+                    case USE_DICTIONARY_NZDUSD:
+                        set_dictionary((const char*)dictionary_candles_nzdusd, sizeof(dictionary_candles_nzdusd));
+                        break;
+                    case USE_DICTIONARY_USDCAD:
+                        set_dictionary((const char*)dictionary_candles_usdcad, sizeof(dictionary_candles_usdcad));
+                        break;
+                    case USE_DICTIONARY_USDCHF:
+                        set_dictionary((const char*)dictionary_candles_usdchf, sizeof(dictionary_candles_usdchf));
+                        break;
+                    case USE_DICTIONARY_USDJPY:
+                        set_dictionary((const char*)dictionary_candles_usdjpy, sizeof(dictionary_candles_usdjpy));
+                        break;
+                    case USE_DICTIONARY_USDNOK:
+                        set_dictionary((const char*)dictionary_candles_usdnok, sizeof(dictionary_candles_usdnok));
+                        break;
+                    case USE_DICTIONARY_USDPLN:
+                        set_dictionary((const char*)dictionary_candles_usdpln, sizeof(dictionary_candles_usdpln));
+                        break;
+                    }
                     break;
                 case PRICE_OHLCV:
                     set_dictionary((const char*)dictionary_candles_with_volumes, sizeof(dictionary_candles_with_volumes));

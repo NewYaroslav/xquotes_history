@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
     std::cout << "start day timestamp: " << xtime::get_str_date_time(min_timestamp) << " - " << xtime::get_str_date_time(max_timestamp) << std::endl;
 
     // читаем бар
-    xquotes_history::Candle candle1, candle2, candle3;
+    xquotes_history::Candle candle1;
     std::cout << "checking the reading of the same price" << std::endl;
     iMultipleQuotesHistory.get_candle(candle1, xtime::get_timestamp(1, 3, 2018, 12, 30, 0), 0);
     std::cout << "candle #1, open: " << candle1.open << " close: " << candle1.close << " date: " << xtime::get_str_date_time(candle1.timestamp) << std::endl;

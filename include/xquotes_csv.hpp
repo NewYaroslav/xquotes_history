@@ -216,7 +216,7 @@ namespace xquotes_csv {
      * предыдущими значениями или пропущены, если предыдущих значений нет
      * \param time_zone Изменить часовой пояс меток времени
      * (DO_NOT_CHANGE_TIME_ZONE, CET_TO_GMT, EET_TO_GMT, GMT_TO_CET, GMT_TO_EET)
-     * \param number_decimal_places количество знаков после запятой
+     * \param decimal_places количество знаков после запятой
      * \param f лямбда-функция для получения бара или свечи по метке времени, должна вернуть false в случае завершения
      * Лямбда функция может пропускать запись по своему усмотрению. Для этого достаточно вернуть false.
      * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
@@ -230,13 +230,13 @@ namespace xquotes_csv {
             const int type_csv,
             const int type_correction_candle,
             const int time_zone,
-            const int number_decimal_places,
+            const int decimal_places,
             std::function<bool(Candle &candle, const xtime::timestamp_t timestamp)> f) {
         std::ofstream file(file_name);
         if(!file.is_open()) {
             return FILE_CANNOT_OPENED;
         }
-        std::string str_price = "%." + std::to_string(number_decimal_places) + "f";
+        std::string str_price = "%." + std::to_string(decimal_places) + "f";
         std::string sprintf_param =
             // пример MT4: 1971.01.04,00:00,0.53690,0.53690,0.53690,0.53690,1
             type_csv == MT4 ? "%.4d.%.2d.%.2d,%.2d:%.2d," + str_price + "," + str_price + "," + str_price + "," + str_price + ",%d" :

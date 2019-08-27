@@ -65,7 +65,7 @@ namespace xquotes_zstd {
                         free(samples_size);
                     return NOT_OPEN_FILE;
                 } else {
-                    std::cout << "load file: " << files_list[i] << " #" << num_files << std::endl;
+                    std::cout << "load file: " << files_list[i] << " #" << num_files << "/" << files_list.size() << std::endl;
                 }
             } else {
                 std::cout << "buffer size: error, " << files_list[i] << std::endl;
