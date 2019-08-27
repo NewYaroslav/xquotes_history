@@ -42,6 +42,8 @@
 #include "xquotes_dictionary_candles.hpp"
 #include "xquotes_dictionary_candles_with_volumes.hpp"
 #include "xquotes_dictionary_only_one_price.hpp"
+
+#ifdef XQUOTES_USE_DICTIONARY_CURRENCY_PAIR
 // словари под конкретные валютные пары
 #include "dictionary_currency_pair/xquotes_dictionary_candles_audcad.hpp"
 #include "dictionary_currency_pair/xquotes_dictionary_candles_audchf.hpp"
@@ -74,6 +76,7 @@
 #include "dictionary_currency_pair/xquotes_dictionary_candles_usdjpy.hpp"
 #include "dictionary_currency_pair/xquotes_dictionary_candles_usdnok.hpp"
 #include "dictionary_currency_pair/xquotes_dictionary_candles_usdpln.hpp"
+#endif // XQUOTES_USE_DICTIONARY_CURRENCY_PAIR
 
 namespace xquotes_history {
     using namespace xquotes_common;
@@ -92,7 +95,9 @@ namespace xquotes_history {
         typedef std::array<CANDLE_TYPE, MINUTES_IN_DAY> candles_array_t;    /**< Массив свечей */
         bool is_use_dictionary = false; /**< Флаг использования словаря */
         int price_type = PRICE_CLOSE;   /**< Тип используемой в хранилище цены */
+#       ifdef XQUOTES_USE_DICTIONARY_CURRENCY_PAIR
         int currency_pair = 0;          /**< Валютная пара */
+#       endif
         int decimal_places_ = 0;        /**< Количество знаков после запятой */
         std::string path_;
         std::string name_;
@@ -377,6 +382,7 @@ namespace xquotes_history {
          * \param user_price_type пользовательная настройка цены
          */
         void update_file_notes(const int user_price_type) {
+#           ifdef XQUOTES_USE_DICTIONARY_CURRENCY_PAIR
             const unsigned int PRICE_TYPE_NOTES_MASK = 0x0F;
             const unsigned int COMPRESSION_BIT = 0x10;
             const unsigned int PRICE_TYPE_PAIR_MASK = 0xFF00;
@@ -393,6 +399,20 @@ namespace xquotes_history {
                 QuotesHistory::currency_pair = (notes & PRICE_TYPE_PAIR_MASK) >> 8;
                 is_use_dictionary = notes & COMPRESSION_BIT ? true : false;
             }
+#           else
+            const unsigned int PRICE_TYPE_NOTES_MASK = 0x0F;
+            const unsigned int COMPRESSION_BIT = 0x10;
+            if(get_num_subfiles() == 0) {
+                note_t notes = is_use_dictionary ? COMPRESSION_BIT : 0x00;
+                notes |= user_price_type & PRICE_TYPE_NOTES_MASK;
+                set_file_note(notes);
+                QuotesHistory::price_type = user_price_type & PRICE_TYPE_NOTES_MASK;
+            } else {
+                note_t notes = get_file_note();
+                QuotesHistory::price_type = notes & PRICE_TYPE_NOTES_MASK;
+                is_use_dictionary = notes & COMPRESSION_BIT ? true : false;
+            }
+#           endif
         }
 
         /** \brief Проверка выходного дня
@@ -443,13 +463,14 @@ namespace xquotes_history {
                 Storage(path), path_(path) {
             if(option == USE_COMPRESSION) is_use_dictionary = true;
             update_file_notes(user_price_type);
-            if(is_use_dictionary && currency_pair == 0) {
+            if(is_use_dictionary) {
                 switch (QuotesHistory::price_type){
                 case PRICE_CLOSE:
                 case PRICE_OPEN:
                     set_dictionary((const char*)dictionary_only_one_price, sizeof(dictionary_only_one_price));
                     break;
                 case PRICE_OHLC:
+#                   ifdef XQUOTES_USE_DICTIONARY_CURRENCY_PAIR
                     switch (QuotesHistory::currency_pair){
                     default:
                     case 0:
@@ -546,6 +567,9 @@ namespace xquotes_history {
                         set_dictionary((const char*)dictionary_candles_usdpln, sizeof(dictionary_candles_usdpln));
                         break;
                     }
+#                   else
+                    set_dictionary((const char*)dictionary_candles, sizeof(dictionary_candles));
+#                   endif
                     break;
                 case PRICE_OHLCV:
                     set_dictionary((const char*)dictionary_candles_with_volumes, sizeof(dictionary_candles_with_volumes));
@@ -932,10 +956,14 @@ namespace xquotes_history {
             int err = get_min_max_day_timestamp(min_timestamp, max_timestamp);
             max_timestamp += xtime::SECONDS_IN_DAY;
             if(err != OK) return err;
-            const size_t MAX_CANDLES = 100;
+
+            const size_t MAX_CANDLES = 10000;
+            xtime::timestamp_t step = (max_timestamp - min_timestamp) / MAX_CANDLES;
+            if(step < xtime::SECONDS_IN_MINUTE) step = xtime::SECONDS_IN_MINUTE;
+
             std::vector<CANDLE_TYPE> candles;
             CANDLE_TYPE old_candle;
-            for(xtime::timestamp_t t = min_timestamp; t < max_timestamp; t+= xtime::SECONDS_IN_MINUTE) {
+            for(xtime::timestamp_t t = min_timestamp; t < max_timestamp; t+= step) {
                 CANDLE_TYPE candle;
                 int err = get_candle(candle, t);
                 if( err == OK &&
@@ -944,7 +972,6 @@ namespace xquotes_history {
                     candles.push_back(candle);
                     old_candle = candle;
                 }
-                if(candles.size() >= MAX_CANDLES) break;
             }
             if(candles.size() == 0) return DATA_NOT_AVAILABLE;
             decimal_places = xquotes_common::get_decimal_places(candles, is_factor);

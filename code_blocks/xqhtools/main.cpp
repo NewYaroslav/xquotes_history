@@ -93,6 +93,7 @@ int get_cmd(int &cmd, const int argc, char *argv[]) {
 }
 
 int csv_to_hex(const int argc, char *argv[]) {
+    std::cout << std::endl << "start converting csv files to hex" << std::endl;
     int time_zone = xquotes_history::DO_NOT_CHANGE_TIME_ZONE;
     int type_price = xquotes_history::PRICE_OHLC;
     bool is_read_header = false;
@@ -107,9 +108,9 @@ int csv_to_hex(const int argc, char *argv[]) {
         else
         if(value == "-alpari") is_alpari = true;
         else
-        if(value == "-cetgmt") time_zone = xquotes_history::GMT_TO_CET;
+        if(value == "-gmtcet") time_zone = xquotes_history::GMT_TO_CET;
         else
-        if(value == "-eetgmt") time_zone = xquotes_history::GMT_TO_EET;
+        if(value == "-gmteet") time_zone = xquotes_history::GMT_TO_EET;
         else
         if(value == "-h") is_read_header = true;
         else
@@ -182,7 +183,7 @@ int csv_to_hex(const int argc, char *argv[]) {
             if(real_day != last_day || is_end) {
                 last_day = real_day;
                 // записываем данные тут
-                std::cout << "write file: " << xtime::get_str_date(file_timestamp) << std::endl;
+                std::cout << "date: " << xtime::get_str_date(file_timestamp) << "\r";
                 if(
                     type_price == xquotes_history::PRICE_CLOSE ||
                     type_price == xquotes_history::PRICE_LOW ||
@@ -212,16 +213,20 @@ int csv_to_hex(const int argc, char *argv[]) {
         }
     });
     if(err_csv != xquotes_common::OK) {
-        std::cout << "error! error! csv file, code: " << err_csv << std::endl;
+        std::cout << std::endl << "error! error! csv file, code: " << err_csv << std::endl;
         return -1;
     }
+    std::cout << std::endl << "conversion completed" << std::endl;
     return 0;
 }
 
 int csv_to_qhs(const int argc, char *argv[]) {
+    std::cout << std::endl << "start converting csv files to qhs" << std::endl;
     int time_zone = xquotes_history::DO_NOT_CHANGE_TIME_ZONE;
     int type_price = xquotes_history::PRICE_OHLC;
+#   ifdef XQUOTES_USE_DICTIONARY_CURRENCY_PAIR
     int currency_pair = 0;
+#   endif
     bool is_read_header = false;
     bool is_alpari = false;
     bool is_compression = false;
@@ -235,9 +240,9 @@ int csv_to_qhs(const int argc, char *argv[]) {
         else
         if(value == "-alpari") is_alpari = true;
         else
-        if(value == "-cetgmt") time_zone = xquotes_history::GMT_TO_CET;
+        if(value == "-gmtcet") time_zone = xquotes_history::GMT_TO_CET;
         else
-        if(value == "-eetgmt") time_zone = xquotes_history::GMT_TO_EET;
+        if(value == "-gmteet") time_zone = xquotes_history::GMT_TO_EET;
         else
         if(value == "-h") is_read_header = true;
         else
@@ -262,6 +267,7 @@ int csv_to_qhs(const int argc, char *argv[]) {
         if(value == "-c") {
             is_compression = true;
         } else
+#       ifdef XQUOTES_USE_DICTIONARY_CURRENCY_PAIR
         if(value == "-audcad") {
             currency_pair = xquotes_history::USE_DICTIONARY_AUDCAD;
         } else
@@ -352,11 +358,18 @@ int csv_to_qhs(const int argc, char *argv[]) {
         if(value == "-usdpln") {
             currency_pair = xquotes_history::USE_DICTIONARY_USDPLN;
         }
+#       else
+        {
+            // здесь ничего не происходит =)
+        }
+#       endif
     }
+
     if(path_storage == "" || path_csv == "" || path_storage == path_csv) {
         std::cout << "error! no path or directory specified" << std::endl;
         return -1;
     }
+
     if(is_alpari) {
         time_zone = xquotes_history::DO_NOT_CHANGE_TIME_ZONE;
     }
@@ -367,8 +380,11 @@ int csv_to_qhs(const int argc, char *argv[]) {
     path_storage = bf::set_file_extension(path_storage, file_extension);
 
     int option = is_compression ? xquotes_history::USE_COMPRESSION : xquotes_history::DO_NOT_USE_COMPRESSION;
+#   ifdef XQUOTES_USE_DICTIONARY_CURRENCY_PAIR
     xquotes_history::QuotesHistory<> iQuotesHistory(path_storage, xquotes_history::get_price_type_with_specific(type_price,currency_pair), option);
-
+#   else
+    xquotes_history::QuotesHistory<> iQuotesHistory(path_storage, type_price, option);
+#   endif
     int err_csv = xquotes_csv::read_file(
             path_csv,
             is_read_header,
@@ -398,7 +414,7 @@ int csv_to_qhs(const int argc, char *argv[]) {
             if(real_day != last_day || is_end) {
                 last_day = real_day;
                 // записываем данные тут
-                std::cout << "write file: " << xtime::get_str_date(file_timestamp) << std::endl;
+                std::cout << "date: " << xtime::get_str_date(file_timestamp) << "\r";
                 std::array<xquotes_common::Candle, xquotes_common::MINUTES_IN_DAY> new_candles;
                 for(size_t i = 0; i < candles.size(); ++i) {
                     new_candles[xtime::get_minute_day(candles[i].timestamp)] = candles[i];
@@ -411,14 +427,17 @@ int csv_to_qhs(const int argc, char *argv[]) {
             candles.push_back(candle);
         }
     });
+
     if(err_csv != xquotes_common::OK) {
-        std::cout << "error! error! csv file, code: " << err_csv << std::endl;
+        std::cout << std::endl << "error! error! csv file, code: " << err_csv << std::endl;
         return -1;
     }
+    std::cout << std::endl << "conversion completed" << std::endl;
     return 0;
 }
 
 int qhs_to_csv(const int argc, char *argv[]) {
+    std::cout << std::endl << "start converting qhs files to csv" << std::endl;
     int time_zone = xquotes_history::DO_NOT_CHANGE_TIME_ZONE;
     int type_csv = xquotes_csv::MT4;
     int type_correction_candle = xquotes_csv::SKIPPING_BAD_CANDLES;
@@ -432,9 +451,9 @@ int qhs_to_csv(const int argc, char *argv[]) {
         else
         if(value == "-eetgmt") time_zone = xquotes_history::EET_TO_GMT;
         else
-        if(value == "-cetgmt") time_zone = xquotes_history::GMT_TO_CET;
+        if(value == "-gmtcet") time_zone = xquotes_history::GMT_TO_CET;
         else
-        if(value == "-eetgmt") time_zone = xquotes_history::GMT_TO_EET;
+        if(value == "-gmteet") time_zone = xquotes_history::GMT_TO_EET;
         else
         if((value == "header") && i < argc) {
             header = std::string(argv[i + 1]);
@@ -493,7 +512,7 @@ int qhs_to_csv(const int argc, char *argv[]) {
         return -1;
     }
 
-    std::cout << "write: " << path_csv << std::endl;
+    std::cout << "file: " << path_csv << std::endl;
     if(is_write_header) std::cout << "write header: " << header << std::endl;
     int err_csv = xquotes_csv::write_file(
             path_csv,
@@ -508,14 +527,15 @@ int qhs_to_csv(const int argc, char *argv[]) {
             [&](xquotes_history::Candle &candle, const xtime::timestamp_t timestamp)->bool {
         int err_candle = iQuotesHistory.get_candle(candle, timestamp);
         if(timestamp % xtime::SECONDS_IN_DAY == 0) {
-            std::cout << "write: " << path_csv << " " << xtime::get_str_date(timestamp) << std::endl;
+            std::cout << "date: " << xtime::get_str_date(timestamp) << "\r";
         }
         if(err_candle != xquotes_history::OK && type_correction_candle == xquotes_csv::SKIPPING_BAD_CANDLES) return false;
         return true;
     });
     if(err_csv != xquotes_common::OK) {
-        std::cout << "error! error! csv file, code: " << err_csv << std::endl;
+        std::cout << std::endl << "error! error! csv file, code: " << err_csv << std::endl;
         return -1;
     }
+    std::cout << std::endl << "conversion completed" << std::endl;
     return 0;
 }

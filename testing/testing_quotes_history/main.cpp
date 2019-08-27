@@ -71,6 +71,19 @@ int main(int argc, char *argv[]) {
     for(size_t i = 0; i < list_timestamp.size(); ++i) {
         std::cout << "day #" << i << " - " << xtime::get_str_date_time(list_timestamp[i]) << " is day off: "<< xtime::is_day_off(list_timestamp[i]) << std::endl;
     }
+
+    /* Проверим, как работает алгоритм получения количесвта десятичных знаков после запятой
+     *
+     */
+    std::string path2 = "D:/_repoz/finam_history_quotes/storage/AUDJPY.qhs4";
+    xquotes_history::QuotesHistory<> iQuotesHistory2(
+            path2,
+            xquotes_history::PRICE_CLOSE,
+            xquotes_history::DO_NOT_USE_COMPRESSION);
+    int decimal_places = 0;
+    iQuotesHistory2.get_decimal_places(decimal_places);
+    std::cout << "decimal places: " << decimal_places << std::endl;
+
     system("pause");
     return 0;
 }
