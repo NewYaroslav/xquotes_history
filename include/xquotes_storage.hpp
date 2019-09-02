@@ -1,3 +1,32 @@
+/*
+* xquotes_history - C++ header-only library for working with historical quotes data
+*
+* Copyright (c) 2018 Elektro Yar. Email: git.electroyar@gmail.com
+*
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
+*
+* The above copyright notice and this permission notice shall be included in
+* all copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+* SOFTWARE.
+*/
+
+/** \file Файл с классом хранилища данны
+ * \brief Данный файл содержит класс Storage хранилища данных
+ * Данный класс является родителем класса QuotesHistory и может быть
+ * применен для других целей, например для хранения результатов оптимизации торговой стратегии
+ */
 #ifndef XQUOTES_STORAGE_HPP_INCLUDED
 #define XQUOTES_STORAGE_HPP_INCLUDED
 
@@ -496,34 +525,34 @@ namespace xquotes_storage {
             if(subfiles_it == subfiles.end()) {
                 return DATA_NOT_AVAILABLE;
             }
-            int indx = (int)(subfiles_it - subfiles.begin());
+            int ind = (int)(subfiles_it - subfiles.begin());
             list_subfile.clear();
             if(is_go_to_beg) {
-                if(indx > 0 && subfiles[indx].key > key) {
-                    indx--;
+                if(ind > 0 && subfiles[ind].key > key) {
+                    ind--;
                 } else
-                if(indx == 0 && subfiles[indx].key > key) return DATA_NOT_AVAILABLE;
-                while(indx >= 0 && (int)list_subfile.size() < num_subfile) {
-                    if(f != NULL && f(subfiles[indx].key)) {
-                        indx--;
+                if(ind == 0 && subfiles[ind].key > key) return DATA_NOT_AVAILABLE;
+                while(ind >= 0 && (int)list_subfile.size() < num_subfile) {
+                    if(f != NULL && f(subfiles[ind].key)) {
+                        ind--;
                         continue;
                     }
-                    list_subfile.push_back(subfiles[indx].key);
-                    indx--;
+                    list_subfile.push_back(subfiles[ind].key);
+                    ind--;
                 }
                 std::reverse(list_subfile.begin(), list_subfile.end());
             } else {
-                if(indx < ((int)subfiles.size() + 1) && subfiles[indx].key < key) {
-                    indx++;
+                if(ind < ((int)subfiles.size() + 1) && subfiles[ind].key < key) {
+                    ind++;
                 } else
-                if(indx == ((int)subfiles.size() + 1) && subfiles[indx].key < key) return DATA_NOT_AVAILABLE;
-                while(indx < (int)subfiles.size() && (int)list_subfile.size() < num_subfile) {
-                    if(f != NULL && f(subfiles[indx].key)) {
-                        indx++;
+                if(ind == ((int)subfiles.size() + 1) && subfiles[ind].key < key) return DATA_NOT_AVAILABLE;
+                while(ind < (int)subfiles.size() && (int)list_subfile.size() < num_subfile) {
+                    if(f != NULL && f(subfiles[ind].key)) {
+                        ind++;
                         continue;
                     }
-                    list_subfile.push_back(subfiles[indx].key);
-                    indx++;
+                    list_subfile.push_back(subfiles[ind].key);
+                    ind++;
                 }
             }
             return OK;

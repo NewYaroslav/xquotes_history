@@ -106,11 +106,11 @@ namespace xquotes_history {
 
         /** \brief Получить метку времени начала дня массива цен по индексу элемента
          * Данный метод нужен для внутреннего использования
-         * \param indx индекс элемента массива цен
+         * \param ind индекс элемента массива цен
          * \return метка времени начала дня
          */
-        inline xtime::timestamp_t get_prices_timestamp(const int indx) {
-            return candles_array_days[indx][0].timestamp;
+        inline xtime::timestamp_t get_prices_timestamp(const int ind) {
+            return candles_array_days[ind][0].timestamp;
         }
 
         /** \brief Сортировка массивов минутных свечей
@@ -154,18 +154,18 @@ namespace xquotes_history {
         int indent_day_up = 1;          /**< Отступ в будущее в днях от текущей метки времени */
         int indent_day_dn = 1;          /**< Отступ в прошлое в днях от текущей метки времени */
 
-        int indx_forecast_day = 0;      /**< Прогноз индекса (дня) в массиве candles_array_days */
-        int indx_forecast_minute = 0;   /**< Прогноз индекса в массиве свечей candles_array_days[indx_forecast_day] */
+        int ind_forecast_day = 0;      /**< Прогноз индекса (дня) в массиве candles_array_days */
+        int ind_forecast_minute = 0;   /**< Прогноз индекса в массиве свечей candles_array_days[ind_forecast_day] */
 
         /** \brief Сделать следующий прогноз для идексов массива свечей
          * Данный метод нужен для внутреннего использования
          */
         inline void make_next_candles_forecast() {
-            indx_forecast_minute++;
-            if(indx_forecast_minute >= MINUTES_IN_DAY) {
-                indx_forecast_minute = 0;
-                if(indx_forecast_day >= ((int)candles_array_days.size() - 1)) return;
-                indx_forecast_day++;
+            ind_forecast_minute++;
+            if(ind_forecast_minute >= MINUTES_IN_DAY) {
+                ind_forecast_minute = 0;
+                if(ind_forecast_day >= ((int)candles_array_days.size() - 1)) return;
+                ind_forecast_day++;
             }
         }
 
@@ -178,8 +178,8 @@ namespace xquotes_history {
         inline bool set_start_candles_forecast(const xtime::timestamp_t timestamp, const int minute_day) {
             auto found_candles_array = find_candles_array(timestamp);
             if(found_candles_array == candles_array_days.end()) return false;
-            indx_forecast_day = found_candles_array - candles_array_days.begin();
-            indx_forecast_minute = minute_day;
+            ind_forecast_day = found_candles_array - candles_array_days.begin();
+            ind_forecast_minute = minute_day;
             return true;
         }
 
@@ -215,25 +215,25 @@ namespace xquotes_history {
             if(buffer_size == CANDLE_WITHOUT_VOLUME_BUFFER_SIZE) {
                 const int BUFFER_SAMPLE_SIZE = 4;
                 for(int i = 0; i < MINUTES_IN_DAY; ++i) {
-                    int indx = i * BUFFER_SAMPLE_SIZE;
-                    ((price_t*)buffer)[indx + 0] = convert_to_uint(candles[i].open);
-                    ((price_t*)buffer)[indx + 1] = convert_to_uint(candles[i].high);
-                    ((price_t*)buffer)[indx + 2] = convert_to_uint(candles[i].low);
-                    ((price_t*)buffer)[indx + 3] = convert_to_uint(candles[i].close);
+                    int ind = i * BUFFER_SAMPLE_SIZE;
+                    ((price_t*)buffer)[ind + 0] = convert_to_uint(candles[i].open);
+                    ((price_t*)buffer)[ind + 1] = convert_to_uint(candles[i].high);
+                    ((price_t*)buffer)[ind + 2] = convert_to_uint(candles[i].low);
+                    ((price_t*)buffer)[ind + 3] = convert_to_uint(candles[i].close);
                 }
             } else
             if(buffer_size == CANDLE_WITH_VOLUME_BUFFER_SIZE) {
                 const int BUFFER_SAMPLE_SIZE = 5;
                 for(int i = 0; i < MINUTES_IN_DAY; ++i) {
-                    int indx = i * BUFFER_SAMPLE_SIZE;
-                    ((price_t*)buffer)[indx + 0] = convert_to_uint(candles[i].open);
-                    ((price_t*)buffer)[indx + 1] = convert_to_uint(candles[i].high);
-                    ((price_t*)buffer)[indx + 2] = convert_to_uint(candles[i].low);
-                    ((price_t*)buffer)[indx + 3] = convert_to_uint(candles[i].close);
-                    ((price_t*)buffer)[indx + 4] = convert_to_uint(candles[i].volume);
+                    int ind = i * BUFFER_SAMPLE_SIZE;
+                    ((price_t*)buffer)[ind + 0] = convert_to_uint(candles[i].open);
+                    ((price_t*)buffer)[ind + 1] = convert_to_uint(candles[i].high);
+                    ((price_t*)buffer)[ind + 2] = convert_to_uint(candles[i].low);
+                    ((price_t*)buffer)[ind + 3] = convert_to_uint(candles[i].close);
+                    ((price_t*)buffer)[ind + 4] = convert_to_uint(candles[i].volume);
                 }
             } else {
-                std::cout << "buffer_size " << buffer_size << std::endl;
+                //std::cout << "buffer_size " << buffer_size << std::endl;
                 return INVALID_ARRAY_LENGH;
             }
             return OK;
@@ -251,22 +251,22 @@ namespace xquotes_history {
             if(buffer_size == CANDLE_WITHOUT_VOLUME_BUFFER_SIZE) {
                 const int BUFFER_SAMPLE_SIZE = 4;
                 for(int i = 0; i < MINUTES_IN_DAY; ++i) {
-                    int indx = i * BUFFER_SAMPLE_SIZE;
-                    candles[i].open = convert_to_double(((price_t*)buffer)[indx + 0]);
-                    candles[i].high = convert_to_double(((price_t*)buffer)[indx + 1]);
-                    candles[i].low = convert_to_double(((price_t*)buffer)[indx + 2]);
-                    candles[i].close = convert_to_double(((price_t*)buffer)[indx + 3]);
+                    int ind = i * BUFFER_SAMPLE_SIZE;
+                    candles[i].open = convert_to_double(((price_t*)buffer)[ind + 0]);
+                    candles[i].high = convert_to_double(((price_t*)buffer)[ind + 1]);
+                    candles[i].low = convert_to_double(((price_t*)buffer)[ind + 2]);
+                    candles[i].close = convert_to_double(((price_t*)buffer)[ind + 3]);
                 }
             } else
             if(buffer_size == CANDLE_WITH_VOLUME_BUFFER_SIZE) {
                 const int BUFFER_SAMPLE_SIZE = 5;
                 for(int i = 0; i < MINUTES_IN_DAY; ++i) {
-                    int indx = i * BUFFER_SAMPLE_SIZE;
-                    candles[i].open = convert_to_double(((price_t*)buffer)[indx + 0]);
-                    candles[i].high = convert_to_double(((price_t*)buffer)[indx + 1]);
-                    candles[i].low = convert_to_double(((price_t*)buffer)[indx + 2]);
-                    candles[i].close = convert_to_double(((price_t*)buffer)[indx + 3]);
-                    candles[i].volume = convert_to_double(((price_t*)buffer)[indx + 4]);
+                    int ind = i * BUFFER_SAMPLE_SIZE;
+                    candles[i].open = convert_to_double(((price_t*)buffer)[ind + 0]);
+                    candles[i].high = convert_to_double(((price_t*)buffer)[ind + 1]);
+                    candles[i].low = convert_to_double(((price_t*)buffer)[ind + 2]);
+                    candles[i].close = convert_to_double(((price_t*)buffer)[ind + 3]);
+                    candles[i].volume = convert_to_double(((price_t*)buffer)[ind + 4]);
                 }
             } else {
                 return INVALID_ARRAY_LENGH;
@@ -305,47 +305,47 @@ namespace xquotes_history {
          */
         void read_candles_data(const xtime::timestamp_t timestamp, const int indent_dn, const int indent_up) {
             int num_days = indent_dn + indent_up + 1;
-            xtime::timestamp_t start_indx_timestamp = timestamp - indent_dn * xtime::SECONDS_IN_DAY;
-            int start_indx_day = xtime::get_day(start_indx_timestamp);
+            xtime::timestamp_t start_ind_timestamp = timestamp - indent_dn * xtime::SECONDS_IN_DAY;
+            int start_ind_day = xtime::get_day(start_ind_timestamp);
             if(candles_array_days.size() == 0) {
                 // в данном случае просто загружаем данные
                 candles_array_days.resize(num_days);
-                int indx_day = start_indx_day;
-                xtime::timestamp_t indx_timestamp = start_indx_timestamp;
-                for(int i = 0; i < num_days; ++i, ++indx_day, indx_timestamp += xtime::SECONDS_IN_DAY) {
-                    read_candles(candles_array_days[i], indx_day, indx_timestamp);
+                int ind_day = start_ind_day;
+                xtime::timestamp_t ind_timestamp = start_ind_timestamp;
+                for(int i = 0; i < num_days; ++i, ++ind_day, ind_timestamp += xtime::SECONDS_IN_DAY) {
+                    read_candles(candles_array_days[i], ind_day, ind_timestamp);
                 }
             } else {
                 // сначала составим список уже загруженных данных
                 std::vector<xtime::timestamp_t> check_timestamp;
                 for(size_t j = 0; j < candles_array_days.size(); ++j) {
-                    //bool is_rewrite = true;
-                    int indx_day = start_indx_day;
-                    xtime::timestamp_t indx_timestamp = start_indx_timestamp;
-                    for(int i = 0; i < num_days; ++i, ++indx_day, indx_timestamp += xtime::SECONDS_IN_DAY) {
-                        if(std::binary_search(check_timestamp.begin(), check_timestamp.end(), indx_timestamp)) continue;
-                        if(get_prices_timestamp(j) == indx_timestamp) {
-                            auto check_timestamp_it = std::upper_bound(check_timestamp.begin(),check_timestamp.end(), indx_timestamp);
-                            check_timestamp.insert(check_timestamp_it, indx_timestamp);
+                    //int ind_day = start_ind_day;
+                    xtime::timestamp_t ind_timestamp = start_ind_timestamp;
+                    for(int i = 0; i < num_days; ++i, ind_timestamp += xtime::SECONDS_IN_DAY) {
+                    //for(int i = 0; i < num_days; ++i, ++ind_day, ind_timestamp += xtime::SECONDS_IN_DAY) {
+                        if(std::binary_search(check_timestamp.begin(), check_timestamp.end(), ind_timestamp)) continue;
+                        if(get_prices_timestamp(j) == ind_timestamp) {
+                            auto check_timestamp_it = std::upper_bound(check_timestamp.begin(),check_timestamp.end(), ind_timestamp);
+                            check_timestamp.insert(check_timestamp_it, ind_timestamp);
                         }
                     }
                 }
                 // удаляем лишние данные
-                size_t indx_prices = 0;
-                while(indx_prices < candles_array_days.size()) {
-                    if(!std::binary_search(check_timestamp.begin(), check_timestamp.end(), candles_array_days[indx_prices][0].timestamp)) {
-                        candles_array_days.erase(candles_array_days.begin() + indx_prices);
+                size_t ind_prices = 0;
+                while(ind_prices < candles_array_days.size()) {
+                    if(!std::binary_search(check_timestamp.begin(), check_timestamp.end(), candles_array_days[ind_prices][0].timestamp)) {
+                        candles_array_days.erase(candles_array_days.begin() + ind_prices);
                         continue;
                     }
-                    indx_prices++;
+                    ind_prices++;
                 }
                 // далее загрузим недостающие данные
-                int indx_day = start_indx_day;
-                xtime::timestamp_t indx_timestamp = start_indx_timestamp;
-                for(int i = 0; i < num_days; ++i, ++indx_day, indx_timestamp += xtime::SECONDS_IN_DAY) {
-                    if(std::binary_search(check_timestamp.begin(), check_timestamp.end(), indx_timestamp)) continue;
+                int ind_day = start_ind_day;
+                xtime::timestamp_t ind_timestamp = start_ind_timestamp;
+                for(int i = 0; i < num_days; ++i, ++ind_day, ind_timestamp += xtime::SECONDS_IN_DAY) {
+                    if(std::binary_search(check_timestamp.begin(), check_timestamp.end(), ind_timestamp)) continue;
                     candles_array_days.resize(candles_array_days.size() + 1);
-                    read_candles(candles_array_days[candles_array_days.size() - 1], indx_day, indx_timestamp);
+                    read_candles(candles_array_days[candles_array_days.size() - 1], ind_day, ind_timestamp);
                 }
             }
             sort_candles_array_days();
@@ -370,8 +370,8 @@ namespace xquotes_history {
                 found_candles_array = find_candles_array(timestamp);
                 if(found_candles_array == candles_array_days.end()) return STRANGE_PROGRAM_BEHAVIOR;
             }
-            int indx_day = found_candles_array - candles_array_days.begin();
-            candle = candles_array_days[indx_day][minute_day];
+            int ind_day = found_candles_array - candles_array_days.begin();
+            candle = candles_array_days[ind_day][minute_day];
             return candle.close != 0.0 ? OK : DATA_NOT_AVAILABLE;
         }
 
@@ -630,8 +630,8 @@ namespace xquotes_history {
             } else
             if(optimization == OPTIMIZATION_SEQUENTIAL_READING) {
                 if(candles_array_days.size() > 0 &&
-                        candles_array_days[indx_forecast_day][indx_forecast_minute].timestamp == timestamp) {
-                    candle = candles_array_days[indx_forecast_day][indx_forecast_minute];
+                        candles_array_days[ind_forecast_day][ind_forecast_minute].timestamp == timestamp) {
+                    candle = candles_array_days[ind_forecast_day][ind_forecast_minute];
                     // прогноз оправдался, делаем следующий прогноз
                     make_next_candles_forecast();
                     return candle.close != 0.0 ? OK : DATA_NOT_AVAILABLE;
@@ -640,13 +640,13 @@ namespace xquotes_history {
                     int minute_day = xtime::get_minute_day(timestamp);
                     const xtime::timestamp_t timestamp_start_day = xtime::get_start_day(timestamp);
                     if(set_start_candles_forecast(timestamp_start_day, minute_day)) {
-                        candle = candles_array_days[indx_forecast_day][indx_forecast_minute];
+                        candle = candles_array_days[ind_forecast_day][ind_forecast_minute];
                         return candle.close != 0.0 ? OK : DATA_NOT_AVAILABLE;
                     }
                     // поиск не дал результатов, грузим котировки
                     read_candles_data(timestamp_start_day, indent_day_dn, indent_day_up);
                     if(set_start_candles_forecast(timestamp_start_day, minute_day)) {
-                        candle = candles_array_days[indx_forecast_day][indx_forecast_minute];
+                        candle = candles_array_days[ind_forecast_day][ind_forecast_minute];
                         return candle.close != 0.0 ? OK : DATA_NOT_AVAILABLE;
                     }
                     return STRANGE_PROGRAM_BEHAVIOR;
@@ -694,7 +694,7 @@ namespace xquotes_history {
          * \param state состояние бинарного опциона (удачная сделка WIN = 1, убыточная LOSS = -1 и нейтральная NEUTRAL = 0)
          * \param contract_type тип контракта (доступно BUY = 1 и SELL = -1)
          * \param duration_sec длительность опциона в секундах
-         * \param timestamp временная метка начала опциона
+         * \param timestamp метка времени начала опциона
          * \param price_type цена входа в опцион (цена закрытия PRICE_CLOSE или открытия PRICE_OPEN свечи)
          * \param optimization оптимизация чтения данных
          * Для отключения указать WITHOUT_OPTIMIZATION.
@@ -716,28 +716,31 @@ namespace xquotes_history {
 
             // сначала проверяем прогноз на текущую свечу
             if(optimization == OPTIMIZATION_SEQUENTIAL_READING) {
-                if(indx_forecast_minute > 0 && candles_array_days[indx_forecast_day][indx_forecast_minute - 1].timestamp == timestamp) {
-                    price_start = price_type == PRICE_CLOSE ? candles_array_days[indx_forecast_day][indx_forecast_minute - 1].close : candles_array_days[indx_forecast_day][indx_forecast_minute - 1].open;
+                if(ind_forecast_minute > 0 && candles_array_days[ind_forecast_day][ind_forecast_minute - 1].timestamp == timestamp) {
+                    price_start = price_type == PRICE_CLOSE ? candles_array_days[ind_forecast_day][ind_forecast_minute - 1].close : candles_array_days[ind_forecast_day][ind_forecast_minute - 1].open;
                     if(price_start == 0.0) return DATA_NOT_AVAILABLE;
                 } else
-                if(indx_forecast_day > 0 && indx_forecast_minute == 0 && candles_array_days[indx_forecast_day - 1][MINUTES_IN_DAY - 1].timestamp == timestamp) {
-                    price_start = price_type == PRICE_CLOSE ? candles_array_days[indx_forecast_day - 1][MINUTES_IN_DAY - 1].close : candles_array_days[indx_forecast_day - 1][MINUTES_IN_DAY - 1].open;
+                if(ind_forecast_day > 0 && ind_forecast_minute == 0 && candles_array_days[ind_forecast_day - 1][MINUTES_IN_DAY - 1].timestamp == timestamp) {
+                    price_start = price_type == PRICE_CLOSE ? candles_array_days[ind_forecast_day - 1][MINUTES_IN_DAY - 1].close : candles_array_days[ind_forecast_day - 1][MINUTES_IN_DAY - 1].open;
                     if(price_start == 0.0) return DATA_NOT_AVAILABLE;
                 } else {
                     // придется искать цену
                     int err_candle_start = find_candle(candle_start, timestamp);
                     if(err_candle_start != OK) return DATA_NOT_AVAILABLE;
                     price_start = price_type == PRICE_CLOSE ? candle_start.close : candle_start.open;
+                    if(price_start == 0.0) return DATA_NOT_AVAILABLE;
                 }
             } else {
                 // придется искать цену
                 int err_candle_start = find_candle(candle_start, timestamp);
                 if(err_candle_start != OK) return DATA_NOT_AVAILABLE;
                 price_start = price_type == PRICE_CLOSE ? candle_start.close : candle_start.open;
+                if(price_start == 0.0) return DATA_NOT_AVAILABLE;
             }
             int err_candle_stop = find_candle(candle_stop, timestamp_stop);
             if(err_candle_stop != OK) return err_candle_stop;
             price_stop = price_type == PRICE_CLOSE ? candle_stop.close : candle_stop.open;
+            if(price_stop == 0.0) return DATA_NOT_AVAILABLE;
             state = price_start != price_stop ? (contract_type == BUY ? (price_start < price_stop ? WIN : LOSS) : (price_start > price_stop ? WIN : LOSS)) : NEUTRAL;
             return OK;
         }
@@ -748,10 +751,13 @@ namespace xquotes_history {
          * которая была получена через метод get_candle. Если метка времени последней полученной цены не совпадает с требуемой,
          * то метод начнет поиск цены в хранилище.
          * \warning Будьте аккуратны! Данный метод может создать эффект "подглядывания в будущее"
-         * \param state состояние бинарного опциона (удачная сделка WIN = 1, убыточная LOSS = -1 и нейтральная NEUTRAL = 0)
+         * \param profit Разница между ценами (представлена в единицах котировок цены)
          * \param contract_type тип контракта (доступно BUY = 1 и SELL = -1)
-         * \param duration_sec длительность опциона в секундах
-         * \param timestamp временная метка начала опциона
+         * \param spread Спред (представлен в единицах котировок цены)
+         * \param take_profit Тэйк профит (представлен в единицах котировок цены)
+         * \param stop_loss Стоп лосс (представлен в единицах котировок цены)
+         * \param timestamp метка времени начала ордера
+         * \param timestamp_end метка времени конца ордера (в данную переменную запишется результат)
          * \param price_type цена входа в опцион (цена закрытия PRICE_CLOSE или открытия PRICE_OPEN свечи)
          * \param optimization оптимизация чтения данных
          * Для отключения указать WITHOUT_OPTIMIZATION.
@@ -761,24 +767,28 @@ namespace xquotes_history {
          */
         int check_oreder(
                 double &profit,
+                const int contract_type,
+                const double spread,
                 const double take_profit,
                 const double stop_loss,
                 const xtime::timestamp_t timestamp,
+                xtime::timestamp_t &timestamp_end,
                 const int price_type = PRICE_CLOSE,
                 const int optimization = OPTIMIZATION_SEQUENTIAL_READING,
                 const bool is_ignore_skipping = false) {
+            profit = 0.0;
             if(price_type != PRICE_CLOSE && price_type != PRICE_OPEN) return INVALID_PARAMETER;
             double price_start, price_stop;
             CANDLE_TYPE candle_start, candle_stop;
 
             // сначала проверяем прогноз на текущую свечу
             if(optimization == OPTIMIZATION_SEQUENTIAL_READING) {
-                if(indx_forecast_minute > 0 && candles_array_days[indx_forecast_day][indx_forecast_minute - 1].timestamp == timestamp) {
-                    price_start = price_type == PRICE_CLOSE ? candles_array_days[indx_forecast_day][indx_forecast_minute - 1].close : candles_array_days[indx_forecast_day][indx_forecast_minute - 1].open;
+                if(ind_forecast_minute > 0 && candles_array_days[ind_forecast_day][ind_forecast_minute - 1].timestamp == timestamp) {
+                    price_start = price_type == PRICE_CLOSE ? candles_array_days[ind_forecast_day][ind_forecast_minute - 1].close : candles_array_days[ind_forecast_day][ind_forecast_minute - 1].open;
                     if(price_start == 0.0) return DATA_NOT_AVAILABLE;
                 } else
-                if(indx_forecast_day > 0 && indx_forecast_minute == 0 && candles_array_days[indx_forecast_day - 1][MINUTES_IN_DAY - 1].timestamp == timestamp) {
-                    price_start = price_type == PRICE_CLOSE ? candles_array_days[indx_forecast_day - 1][MINUTES_IN_DAY - 1].close : candles_array_days[indx_forecast_day - 1][MINUTES_IN_DAY - 1].open;
+                if(ind_forecast_day > 0 && ind_forecast_minute == 0 && candles_array_days[ind_forecast_day - 1][MINUTES_IN_DAY - 1].timestamp == timestamp) {
+                    price_start = price_type == PRICE_CLOSE ? candles_array_days[ind_forecast_day - 1][MINUTES_IN_DAY - 1].close : candles_array_days[ind_forecast_day - 1][MINUTES_IN_DAY - 1].open;
                     if(price_start == 0.0) return DATA_NOT_AVAILABLE;
                 } else {
                     // придется искать цену
@@ -791,16 +801,77 @@ namespace xquotes_history {
                 int err_candle_start = find_candle(candle_start, timestamp);
                 if(err_candle_start != OK) return DATA_NOT_AVAILABLE;
                 price_start = price_type == PRICE_CLOSE ? candle_start.close : candle_start.open;
-            }
-            while(true) {
-                break;
+                if(price_start == 0.0) return DATA_NOT_AVAILABLE;
             }
 
-
-            //int err_candle_stop = find_candle(candle_stop, timestamp_stop);
-            //if(err_candle_stop != OK) return err_candle_stop;
-            //price_stop = price_type == PRICE_CLOSE ? candle_stop.close : candle_stop.open;
-
+            if(contract_type == BUY) {
+                profit = -spread;
+                double tl = price_start + spread + take_profit;
+                double bl = price_start + spread - stop_loss;
+                xtime::timestamp_t t = timestamp;
+                while(true) {
+                    CANDLE_TYPE candle;
+                    int err = get_candle(candle, t);
+                    if(err != OK) {
+                        if(is_ignore_skipping) {
+                            t += xtime::SECONDS_IN_MINUTE;
+                            continue;
+                        } else return DATA_NOT_AVAILABLE;
+                    }
+                    if( candle.high == 0.0 ||
+                        candle.low == 0.0) {
+                        if(is_ignore_skipping) {
+                            t += xtime::SECONDS_IN_MINUTE;
+                            continue;
+                        } else return DATA_NOT_AVAILABLE;
+                    }
+                    if(candle.low <= bl) {
+                        profit = -stop_loss;
+                        timestamp_end = t;
+                        break;
+                    } else
+                    if(candle.high >= tl) {
+                        profit = take_profit;
+                        timestamp_end = t;
+                        break;
+                    }
+                    t += xtime::SECONDS_IN_MINUTE;
+                }
+            } else
+            if(contract_type == SELL) {
+                profit = -spread;
+                double tl = price_start - spread + stop_loss;
+                double bl = price_start - spread - take_profit;
+                xtime::timestamp_t t = timestamp;
+                while(true) {
+                    CANDLE_TYPE candle;
+                    int err = get_candle(candle, t);
+                    if(err != OK) {
+                        if(is_ignore_skipping) {
+                            t += xtime::SECONDS_IN_MINUTE;
+                            continue;
+                        } else return DATA_NOT_AVAILABLE;
+                    }
+                    if( candle.high == 0.0 ||
+                        candle.low == 0.0) {
+                        if(is_ignore_skipping) {
+                            t += xtime::SECONDS_IN_MINUTE;
+                            continue;
+                        } else return DATA_NOT_AVAILABLE;
+                    }
+                    if(candle.high >= tl) {
+                        profit = -stop_loss;
+                        timestamp_end = t;
+                        break;
+                    } else
+                    if(candle.low <= bl) {
+                        profit = take_profit;
+                        timestamp_end = t;
+                        break;
+                    }
+                    t += xtime::SECONDS_IN_MINUTE;
+                }
+            } else return DATA_NOT_AVAILABLE;
             return OK;
         }
 
@@ -1029,12 +1100,12 @@ namespace xquotes_history {
          * недостающих данных
          * \param indent_day_dn Отступ от даты загрузки в днях к началу исторических данных
          * \param indent_day_up Отступ от даты загрузки в днях к концу исторических данных
-         * \param symbol_indx Номер символа
+         * \param symbol_ind Номер символа
          * \return Вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int set_indent(const int indent_day_dn, const int indent_day_up, const int symbol_indx) {
-            if(symbol_indx >= (int)symbols.size()) return INVALID_PARAMETER;
-            symbols[symbol_indx]->set_indent(indent_day_dn, indent_day_up);
+        int set_indent(const int indent_day_dn, const int indent_day_up, const int symbol_ind) {
+            if(symbol_ind >= (int)symbols.size()) return INVALID_PARAMETER;
+            symbols[symbol_ind]->set_indent(indent_day_dn, indent_day_up);
             return OK;
         }
 
@@ -1076,21 +1147,21 @@ namespace xquotes_history {
         /** \brief Узнать максимальную и минимальную метку времени конкретного символа
          * \param min_timestamp метка времени в начале дня начала исторических данных
          * \param max_timestamp метка времени в начале дня конца исторических данных
-         * \param symbol_indx номер символа
+         * \param symbol_ind номер символа
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         inline int get_min_max_day_timestamp(
                 xtime::timestamp_t &min_timestamp,
                 xtime::timestamp_t &max_timestamp,
-                const int symbol_indx) {
-            if(symbol_indx >= (int)symbols.size()) return INVALID_PARAMETER;
-            return symbols[symbol_indx]->get_min_max_start_day_timestamp(min_timestamp, max_timestamp);
+                const int symbol_ind) {
+            if(symbol_ind >= (int)symbols.size()) return INVALID_PARAMETER;
+            return symbols[symbol_ind]->get_min_max_start_day_timestamp(min_timestamp, max_timestamp);
         }
 
         /** \brief Получить свечу по временной метке
          * \param candle Свеча/бар
          * \param timestamp временная метка начала свечи
-         * \param symbol_indx номер символа
+         * \param symbol_ind номер символа
          * \param optimization оптимизация.
          * Для отключения указать WITHOUT_OPTIMIZATION.
          * По умолчанию включена оптимизация последовательного считывания минут OPTIMIZATION_SEQUENTIAL_READING
@@ -1099,16 +1170,16 @@ namespace xquotes_history {
         int get_candle(
                 CANDLE_TYPE &candle,
                 const xtime::timestamp_t timestamp,
-                const int symbol_indx,
+                const int symbol_ind,
                 const int optimization = OPTIMIZATION_SEQUENTIAL_READING) {
-            if(symbol_indx >= (int)symbols.size()) return INVALID_PARAMETER;
-            return symbols[symbol_indx]->get_candle(candle, timestamp, optimization);
+            if(symbol_ind >= (int)symbols.size()) return INVALID_PARAMETER;
+            return symbols[symbol_ind]->get_candle(candle, timestamp, optimization);
         }
 
         /** \brief Получить цену (OPEN, HIGH, LOW, CLOSE) по указанной метке времени
          * \param price цена на указанной временной метке
          * \param timestamp временная метка
-         * \param symbol_indx номер символа
+         * \param symbol_ind номер символа
          * \param price_type тип цены (на выбор: PRICE_CLOSE, PRICE_OPEN, PRICE_LOW, PRICE_HIGH)
          * \param optimization оптимизация
          * Для отключения указать WITHOUT_OPTIMIZATION.
@@ -1118,11 +1189,11 @@ namespace xquotes_history {
         int get_price(
                 double& price,
                 const xtime::timestamp_t timestamp,
-                const int symbol_indx,
+                const int symbol_ind,
                 const int price_type = PRICE_CLOSE,
                 const int optimization = OPTIMIZATION_SEQUENTIAL_READING) {
-            if(symbol_indx >= (int)symbols.size()) return INVALID_PARAMETER;
-            return symbols[symbol_indx]->get_price(price, timestamp, price_type, optimization);
+            if(symbol_ind >= (int)symbols.size()) return INVALID_PARAMETER;
+            return symbols[symbol_ind]->get_price(price, timestamp, price_type, optimization);
         }
 
         /** \brief Получить свечи всех символов по метке времени
@@ -1190,29 +1261,29 @@ namespace xquotes_history {
                 const int contract_type,
                 const int duration_sec,
                 const xtime::timestamp_t timestamp,
-                const int symbol_indx,
+                const int symbol_ind,
                 const int price_type = PRICE_CLOSE,
                 const int optimization = OPTIMIZATION_SEQUENTIAL_READING) {
-            if(symbol_indx >= (int)symbols.size()) return INVALID_PARAMETER;
-            return symbols[symbol_indx]->check_binary_option(state, contract_type, duration_sec, timestamp, price_type, optimization);
+            if(symbol_ind >= (int)symbols.size()) return INVALID_PARAMETER;
+            return symbols[symbol_ind]->check_binary_option(state, contract_type, duration_sec, timestamp, price_type, optimization);
         }
 
         /** \brief Получить имя валютной пары по индексу символа
-         * \param symbol_indx индекс символа
+         * \param symbol_ind индекс символа
          * \return имя символа, если символ существует, иначе пустая строка
          */
-        inline std::string get_name(const int symbol_indx) {
-            if(symbol_indx >= (int)symbols.size()) return "";
-            return symbols[symbol_indx]->get_name();
+        inline std::string get_name(const int symbol_ind) {
+            if(symbol_ind >= (int)symbols.size()) return "";
+            return symbols[symbol_ind]->get_name();
         }
 
         /** \brief Получить директорию файла по индексу символа
-         * \param symbol_indx индекс символа
+         * \param symbol_ind индекс символа
          * \return директория файла символа, если символ существует, иначе пустая строка
          */
-        inline std::string get_path(const int symbol_indx) {
-            if(symbol_indx >= (int)symbols.size()) return "";
-            return symbols[symbol_indx]->get_path();
+        inline std::string get_path(const int symbol_ind) {
+            if(symbol_ind >= (int)symbols.size()) return "";
+            return symbols[symbol_ind]->get_path();
         }
 
         /** \brief Получить список меток времени начала дня начиная с заданной метки вреемни поиска
@@ -1263,16 +1334,16 @@ namespace xquotes_history {
 
         /** \brief Получить количество знаков после запятой символа
          * \param decimal_places количество знаков после запятой
-         * \param symbol_indx индекс символа
+         * \param symbol_ind индекс символа
          * \param is_factor При установке данного флага функция возвращает множитель
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         int get_decimal_places(
                 int &decimal_places,
-                const int symbol_indx,
+                const int symbol_ind,
                 const bool is_factor = false) {
-            if(symbol_indx >= (int)symbols.size()) return INVALID_PARAMETER;
-            return symbols[symbol_indx]->get_decimal_places(decimal_places, is_factor);
+            if(symbol_ind >= (int)symbols.size()) return INVALID_PARAMETER;
+            return symbols[symbol_ind]->get_decimal_places(decimal_places, is_factor);
             return OK;
         }
 
@@ -1296,7 +1367,7 @@ namespace xquotes_history {
                 std::function<void(
                     const CANDLE_TYPE &candle,
                     const int day,
-                    const int symbol_indx,
+                    const int symbol_ind,
                     const int err)> f,
                 const bool is_day_off_filter = true,
                 const bool is_go_back_in_time = true) {
@@ -1347,8 +1418,8 @@ namespace xquotes_history {
                 std::function<void(
                     const CANDLE_TYPE &candle,
                     const int day,
-                    const int symbol_indx,
-                    const int thread_indx,
+                    const int symbol_ind,
+                    const int thread_ind,
                     const int err)> f,
                 const bool is_day_off_filter = true,
                 const bool is_go_back_in_time = true) {
@@ -1366,34 +1437,34 @@ namespace xquotes_history {
 
             // создаем новый список символов с учетом фильтра символов
             const int num_symbols = symbols.size();
-            std::vector<int> list_symbol_indx;
+            std::vector<int> list_symbol_ind;
             for(int s = 0; s < num_symbols; ++s) {
                 if(!is_symbol[s]) continue;
-                list_symbol_indx.push_back(s);
+                list_symbol_ind.push_back(s);
             }
-            const int num_list_symbol = list_symbol_indx.size();
+            const int num_list_symbol = list_symbol_ind.size();
 
             // получаем максимальное количество потоков процессора и создаем массив потоков
             const int num_hardware_thread = std::thread::hardware_concurrency();
-            const int num_thread = std::min((int)list_symbol_indx.size(),num_hardware_thread);
+            const int num_thread = std::min((int)list_symbol_ind.size(),num_hardware_thread);
             std::vector<std::thread> list_thread;
             list_thread.resize(num_thread);
 
-            for(int thread_indx = 0; thread_indx < num_thread; ++thread_indx) {
-                list_thread[thread_indx] = std::thread([&, thread_indx, num_thread]() {
+            for(int thread_ind = 0; thread_ind < num_thread; ++thread_ind) {
+                list_thread[thread_ind] = std::thread([&, thread_ind, num_thread]() {
                     for(int i = 0; i < num_days; ++i) {
                         xtime::timestamp_t stop_timestamp = list_timestamp[i] + xtime::SECONDS_IN_DAY;
                         for(xtime::timestamp_t t = list_timestamp[i]; t < stop_timestamp; t += step_timestamp) {
-                            for(int s = thread_indx; s < num_list_symbol; s += num_thread) {
-                                int symbol_indx = list_symbol_indx[s];
+                            for(int s = thread_ind; s < num_list_symbol; s += num_thread) {
+                                int symbol_ind = list_symbol_ind[s];
                                 CANDLE_TYPE candle;
-                                int err = get_candle(candle, t, symbol_indx);
-                                f(candle, i, symbol_indx, thread_indx, err);
+                                int err = get_candle(candle, t, symbol_ind);
+                                f(candle, i, symbol_ind, thread_ind, err);
                             } // for s
                         } // for t
                     } // for i
                 }); // std::thread
-            } // for thread_indx
+            } // for thread_ind
             for(size_t i = 0; i < list_thread.size(); ++i) {
                 list_thread[i].join();
             }

@@ -21,6 +21,10 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
+
+/** \file Файл с функциями для работы с файлами в формате hex
+ */
+
 #ifndef XQUOTES_FILES_HPP_INCLUDED
 #define XQUOTES_FILES_HPP_INCLUDED
 
@@ -132,16 +136,16 @@ namespace xquotes_files {
         if(prices.size() != times.size() || prices.size() == 0) return INVALID_ARRAY_LENGH;
         std::ofstream file(file_name, std::ios_base::binary);
         xtime::timestamp_t timestamp = xtime::get_start_day(times[0]);
-        size_t times_indx = 0;
+        size_t times_ind = 0;
         for(size_t i = 0; i < MINUTES_IN_DAY; ++i) {
-            if(times_indx >= times.size()) {
+            if(times_ind >= times.size()) {
                 write_null_u32(file);
             } else
-            if(times[times_indx] == timestamp) {
-                write_u32(file, prices[times_indx]);
-                times_indx++;
+            if(times[times_ind] == timestamp) {
+                write_u32(file, prices[times_ind]);
+                times_ind++;
             } else
-            if(times[times_indx] > timestamp) {
+            if(times[times_ind] > timestamp) {
                 write_null_u32(file);
             }
             timestamp += xtime::SECONDS_IN_MINUTE;
@@ -163,16 +167,16 @@ namespace xquotes_files {
         if(candles.size() == 0) return INVALID_ARRAY_LENGH;
         std::ofstream file(file_name, std::ios_base::binary);
         xtime::timestamp_t timestamp = xtime::get_start_day(candles[0].timestamp);
-        size_t indx = 0;
+        size_t ind = 0;
         for(size_t i = 0; i < MINUTES_IN_DAY; ++i) {
-            if(indx >= candles.size()) {
+            if(ind >= candles.size()) {
                 write_null_candle_u32_4x(file);
             } else
-            if(candles[indx].timestamp == timestamp) {
-                write_candle_u32_4x(file, candles[indx]);
-                indx++;
+            if(candles[ind].timestamp == timestamp) {
+                write_candle_u32_4x(file, candles[ind]);
+                ind++;
             } else
-            if(candles[indx].timestamp > timestamp) {
+            if(candles[ind].timestamp > timestamp) {
                 write_null_candle_u32_4x(file);
             }
             timestamp += xtime::SECONDS_IN_MINUTE;
@@ -196,16 +200,16 @@ namespace xquotes_files {
         xtime::DateTime iTime(candles[0].timestamp);
         iTime.set_beg_day();
         unsigned long long timestamp = iTime.get_timestamp();
-        size_t indx = 0;
+        size_t ind = 0;
         for(size_t i = 0; i < MINUTES_IN_DAY; ++i) {
-            if(indx >= candles.size()) {
+            if(ind >= candles.size()) {
                 write_null_candle_u32_5x(file);
             } else
-            if(candles[indx].timestamp == timestamp) {
-                write_candle_u32_5x(file, candles[indx]);
-                indx++;
+            if(candles[ind].timestamp == timestamp) {
+                write_candle_u32_5x(file, candles[ind]);
+                ind++;
             } else
-            if(candles[indx].timestamp > timestamp) {
+            if(candles[ind].timestamp > timestamp) {
                 write_null_candle_u32_5x(file);
             }
             timestamp += xtime::SECONDS_IN_MINUTE;

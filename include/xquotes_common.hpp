@@ -21,6 +21,12 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 */
+
+/** \file Файл с общими константами, перечислениями и т.д.
+ * \brief Данный файл содержит общие константы, перечисления и т.д.
+ * Файл содержит класс Candle необходим для хранения бара \ японской свечи
+ * Функця get_decimal_places нужна для определения числа знаков после запятой
+ */
 #ifndef XQUOTES_COMMON_HPP_INCLUDED
 #define XQUOTES_COMMON_HPP_INCLUDED
 
@@ -170,8 +176,8 @@ namespace xquotes_common {
      * \return Вернет дробную часть
      */
     inline int get_fractional(const double price, const int precision, const bool is_factor = false) {
-        if(is_factor) return (int)((price - std::floor(price)) * precision);
-        else return (int)((price - std::floor(price)) * std::pow(10, precision));
+        if(is_factor) return (int)((price - std::floor(price)) * precision + 0.5);
+        else return (int)((price - std::floor(price)) * std::pow(10, precision) + 0.5);
     }
 
     /** \brief Огрубление цены

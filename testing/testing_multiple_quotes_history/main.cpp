@@ -108,9 +108,10 @@ int main(int argc, char *argv[]) {
     std::cout << "compare price: " << xquotes_history::compare_price(1.07208,xquotes_history::coarsening_price(1.07208,1000,true),1000) << std::endl;
     std::cout << "compare price: " << xquotes_history::compare_price(1.07208,xquotes_history::coarsening_price(1.07208,100000,true),100000) << std::endl;
 
-    std::cout << "get fractional: " << xquotes_history::get_fractional(1.07208,1000000,true) << std::endl;
-    std::cout << "get fractional: " << xquotes_history::get_fractional(1.07208,6,false) << std::endl;
+    std::cout << "get fractional: " << xquotes_history::get_fractional(1.07208,100000,true) << std::endl;
+    std::cout << "get fractional: " << xquotes_history::get_fractional(1.07208,5,false) << std::endl;
 
+    std::cout << ": " << (xquotes_history::get_fractional(1.07208,5,false) % 10) << std::endl;
     system("pause");
     return 0;
 }
