@@ -364,10 +364,10 @@ namespace xquotes_history {
         int find_candle(T &candle, const xtime::timestamp_t timestamp) {
             int minute_day = xtime::get_minute_day(timestamp);
             const xtime::timestamp_t timestamp_start_day = xtime::get_first_timestamp_day(timestamp);
-            auto found_candles_array = find_candles_array(timestamp);
+            auto found_candles_array = find_candles_array(timestamp_start_day);
             if(found_candles_array == candles_array_days.end()) {
                 read_candles_data(timestamp_start_day, indent_day_dn, indent_day_up);
-                found_candles_array = find_candles_array(timestamp);
+                found_candles_array = find_candles_array(timestamp_start_day);
                 if(found_candles_array == candles_array_days.end()) return STRANGE_PROGRAM_BEHAVIOR;
             }
             int ind_day = found_candles_array - candles_array_days.begin();
