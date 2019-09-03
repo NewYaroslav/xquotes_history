@@ -363,7 +363,7 @@ namespace xquotes_history {
         template <typename T>
         int find_candle(T &candle, const xtime::timestamp_t timestamp) {
             int minute_day = xtime::get_minute_day(timestamp);
-            const xtime::timestamp_t timestamp_start_day = xtime::get_start_day(timestamp);
+            const xtime::timestamp_t timestamp_start_day = xtime::get_first_timestamp_day(timestamp);
             auto found_candles_array = find_candles_array(timestamp);
             if(found_candles_array == candles_array_days.end()) {
                 read_candles_data(timestamp_start_day, indent_day_dn, indent_day_up);
@@ -638,14 +638,14 @@ namespace xquotes_history {
                 } else {
                     // прогноз не был успешен, делаем поиск котировки
                     int minute_day = xtime::get_minute_day(timestamp);
-                    const xtime::timestamp_t timestamp_start_day = xtime::get_start_day(timestamp);
-                    if(set_start_candles_forecast(timestamp_start_day, minute_day)) {
+                    const xtime::timestamp_t first_timestamp_day = xtime::get_first_timestamp_day(timestamp);
+                    if(set_start_candles_forecast(first_timestamp_day, minute_day)) {
                         candle = candles_array_days[ind_forecast_day][ind_forecast_minute];
                         return candle.close != 0.0 ? OK : DATA_NOT_AVAILABLE;
                     }
                     // поиск не дал результатов, грузим котировки
-                    read_candles_data(timestamp_start_day, indent_day_dn, indent_day_up);
-                    if(set_start_candles_forecast(timestamp_start_day, minute_day)) {
+                    read_candles_data(first_timestamp_day, indent_day_dn, indent_day_up);
+                    if(set_start_candles_forecast(first_timestamp_day, minute_day)) {
                         candle = candles_array_days[ind_forecast_day][ind_forecast_minute];
                         return candle.close != 0.0 ? OK : DATA_NOT_AVAILABLE;
                     }
@@ -1091,6 +1091,15 @@ namespace xquotes_history {
                 }
             }
             is_init = true;
+        }
+
+        /** \brief Получить указатель на класс исторических данных указанного символа
+         * \param symbol_ind Индекс символа
+         * \return Вернет указатель на класс исторических данны или NULL в случае ошибки
+         */
+        QuotesHistory<CANDLE_TYPE>* get_quotes_history(const size_t symbol_ind) {
+            if(symbol_ind < symbols.size()) return symbols[symbol_ind];
+            return NULL;
         }
 
         /** \brief Установить отступ данных от дня загрузки

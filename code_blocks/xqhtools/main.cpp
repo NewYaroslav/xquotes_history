@@ -169,7 +169,7 @@ int csv_to_hex(const int argc, char *argv[]) {
         int minute_day = xtime::get_minute_day(candle.timestamp);
         if(last_day == -1) { // момент инициализации
             last_day = xtime::get_day(candle.timestamp);
-            file_timestamp = xtime::get_start_day(candle.timestamp);
+            file_timestamp = xtime::get_first_timestamp_day(candle.timestamp);
             std::fill(price.begin(), price.end(), 0);
             price[minute_day] = type_price == xquotes_common::PRICE_CLOSE ?
                 candle.close :
@@ -206,7 +206,7 @@ int csv_to_hex(const int argc, char *argv[]) {
                 //...
                 std::fill(price.begin(), price.end(), 0);
                 candles.clear();
-                file_timestamp = xtime::get_start_day(candle.timestamp);
+                file_timestamp = xtime::get_first_timestamp_day(candle.timestamp);
             }
             price[minute_day] = candle.close;
             candles.push_back(candle);
@@ -407,7 +407,7 @@ int csv_to_qhs(const int argc, char *argv[]) {
 
         if(last_day == -1) { // момент инициализации
             last_day = xtime::get_day(candle.timestamp);
-            file_timestamp = xtime::get_start_day(candle.timestamp);
+            file_timestamp = xtime::get_first_timestamp_day(candle.timestamp);
             candles.push_back(candle);
         } else {
             int real_day = xtime::get_day(candle.timestamp);
@@ -422,7 +422,7 @@ int csv_to_qhs(const int argc, char *argv[]) {
                 iQuotesHistory.write_candles(new_candles, file_timestamp);
                 //...
                 candles.clear();
-                file_timestamp = xtime::get_start_day(candle.timestamp);
+                file_timestamp = xtime::get_first_timestamp_day(candle.timestamp);
             }
             candles.push_back(candle);
         }
@@ -539,3 +539,4 @@ int qhs_to_csv(const int argc, char *argv[]) {
     std::cout << std::endl << "conversion completed" << std::endl;
     return 0;
 }
+

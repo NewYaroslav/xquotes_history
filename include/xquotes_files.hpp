@@ -135,7 +135,7 @@ namespace xquotes_files {
             const std::vector<xtime::timestamp_t> &times) {
         if(prices.size() != times.size() || prices.size() == 0) return INVALID_ARRAY_LENGH;
         std::ofstream file(file_name, std::ios_base::binary);
-        xtime::timestamp_t timestamp = xtime::get_start_day(times[0]);
+        xtime::timestamp_t timestamp = xtime::get_first_timestamp_day(times[0]);
         size_t times_ind = 0;
         for(size_t i = 0; i < MINUTES_IN_DAY; ++i) {
             if(times_ind >= times.size()) {
@@ -166,7 +166,7 @@ namespace xquotes_files {
     int write_bin_file_u32_4x(const std::string file_name, const T &candles) {
         if(candles.size() == 0) return INVALID_ARRAY_LENGH;
         std::ofstream file(file_name, std::ios_base::binary);
-        xtime::timestamp_t timestamp = xtime::get_start_day(candles[0].timestamp);
+        xtime::timestamp_t timestamp = xtime::get_first_timestamp_day(candles[0].timestamp);
         size_t ind = 0;
         for(size_t i = 0; i < MINUTES_IN_DAY; ++i) {
             if(ind >= candles.size()) {
