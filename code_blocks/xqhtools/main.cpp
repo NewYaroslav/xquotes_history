@@ -13,6 +13,7 @@ enum {
     XQHTOOLS_CSV_TO_QHS,
     XQHTOOLS_QHS_TO_CSV,
     XQHTOOLS_QHS_MERGE,
+    XQHTOOLS_QHS_DATE,
 };
 
 // получаем команду из командной строки
@@ -23,6 +24,8 @@ int csv_to_hex(const int argc, char *argv[]);
 int csv_to_qhs(const int argc, char *argv[]);
 // конвертировать хранилище котировок в csv файл
 int qhs_to_csv(const int argc, char *argv[]);
+// получить дату
+int qhs_date(const int argc, char *argv[]);
 
 int main(int argc, char *argv[]) {
     int cmd = 0;
@@ -40,6 +43,10 @@ int main(int argc, char *argv[]) {
     if(cmd == XQHTOOLS_QHS_TO_CSV) {
         int err = qhs_to_csv(argc, argv);
         if(err != 0) return err;
+    } else
+    if(cmd == XQHTOOLS_QHS_DATE) {
+        int err = qhs_date(argc, argv);
+        if(err != 0) return err;
     }
     return 0;
 }
@@ -47,6 +54,7 @@ int main(int argc, char *argv[]) {
 int get_cmd(int &cmd, const int argc, char *argv[]) {
     // обрабатываем команду
     bool is_merge = false;
+    bool is_date = false;
     bool is_convert_csv = false;
     bool is_convert_storage = false;
     bool is_hex = false;
@@ -55,6 +63,8 @@ int get_cmd(int &cmd, const int argc, char *argv[]) {
     for(int i = 1; i < argc; ++i) {
         std::string value = std::string(argv[i]);
         if(value == "merge") is_merge = true;
+        else
+        if(value == "date") is_date = true;
         else
         if(value == "convert_csv") is_convert_csv = true;
         else
@@ -66,6 +76,10 @@ int get_cmd(int &cmd, const int argc, char *argv[]) {
         else
         if(value == "path_storage") is_storage = true;
     }
+    if(is_date && !is_storage) {
+        std::cout << "error! no file specified" << std::endl;
+        return -1;
+    } else
     if((is_merge && (is_convert_csv || is_convert_storage)) || (is_convert_csv && is_convert_storage)) {
         std::cout << "error! you have specified two conversion options" << std::endl;
         return -1;
@@ -73,6 +87,9 @@ int get_cmd(int &cmd, const int argc, char *argv[]) {
     if(is_merge && is_hex) {
         std::cout << "error! hex file merging is not supported" << std::endl;
         return -1;
+    } else
+    if(is_date && is_storage) {
+        cmd = XQHTOOLS_QHS_DATE;
     } else
     if(is_merge && is_storage && !is_hex && !is_csv) {
         cmd = XQHTOOLS_QHS_MERGE;
@@ -540,3 +557,57 @@ int qhs_to_csv(const int argc, char *argv[]) {
     return 0;
 }
 
+int qhs_date(const int argc, char *argv[]) {
+    int time_zone = xquotes_history::DO_NOT_CHANGE_TIME_ZONE;
+    std::string path_storage = "";
+    for(int i = 1; i < argc; ++i) {
+        std::string value = std::string(argv[i]);
+        if((value == "path_storage") && i < argc) {
+            path_storage = std::string(argv[i + 1]);
+        } else
+        if(value == "-cetgmt" || value == "-finam") time_zone = xquotes_history::CET_TO_GMT;
+        else
+        if(value == "-eetgmt") time_zone = xquotes_history::EET_TO_GMT;
+        else
+        if(value == "-gmtcet") time_zone = xquotes_history::GMT_TO_CET;
+        else
+        if(value == "-gmteet") time_zone = xquotes_history::GMT_TO_EET;
+    }
+    if(path_storage == "") {
+        std::cout << "error! no path or directory specified" << std::endl;
+        return -1;
+    }
+
+    xquotes_history::QuotesHistory<> iQuotesHistory(path_storage, xquotes_history::PRICE_OHLC, xquotes_history::USE_COMPRESSION);
+    xtime::timestamp_t min_timestamp = 0, max_timestamp = 0;
+    int err = iQuotesHistory.get_min_max_day_timestamp(min_timestamp, max_timestamp);
+    if(err != xquotes_history::OK) {
+        std::cout << "error! error storage quotes, code: " << err << std::endl;
+        return -1;
+    }
+
+    if(min_timestamp == 0 || max_timestamp == 0) {
+        std::cout << "error! error storage quotes, no data available" << std::endl;
+        return -1;
+    }
+
+    if(time_zone == xquotes_history::CET_TO_GMT) {
+        min_timestamp = xtime::convert_cet_to_gmt(min_timestamp);
+        max_timestamp = xtime::convert_cet_to_gmt(max_timestamp);
+    } else
+    if(time_zone == xquotes_history::EET_TO_GMT) {
+        min_timestamp = xtime::convert_eet_to_gmt(min_timestamp);
+        max_timestamp = xtime::convert_eet_to_gmt(max_timestamp);
+    } else
+    if(time_zone == xquotes_history::GMT_TO_CET) {
+        min_timestamp = xtime::convert_gmt_to_cet(min_timestamp);
+        max_timestamp = xtime::convert_gmt_to_cet(max_timestamp);
+    } else
+    if(time_zone == xquotes_history::GMT_TO_EET) {
+        min_timestamp = xtime::convert_gmt_to_eet(min_timestamp);
+        max_timestamp = xtime::convert_gmt_to_eet(max_timestamp);
+    }
+
+    std::cout << "date: " << xtime::get_str_date(min_timestamp) << " - " << xtime::get_str_date(max_timestamp) << std::endl;
+    return 0;
+}

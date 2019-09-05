@@ -32,6 +32,7 @@
 
 #include <cstdlib>
 #include <cmath>
+#include "xtime.hpp"
 
 namespace xquotes_common {
     typedef unsigned short key_t;
@@ -71,10 +72,10 @@ namespace xquotes_common {
         double low = 0;
         double close = 0;
         double volume = 0;
-        unsigned long long timestamp = 0;
+        xtime::timestamp_t timestamp = 0;
         Candle() {};
 
-        Candle(double open, double high, double low, double close, unsigned long long timestamp) {
+        Candle(double open, double high, double low, double close, xtime::timestamp_t timestamp) {
             Candle::open = open;
             Candle::high = high;
             Candle::low = low;
@@ -82,7 +83,7 @@ namespace xquotes_common {
             Candle::timestamp = timestamp;
         }
 
-        Candle(double open, double high, double low, double close, double volume, unsigned long long timestamp) {
+        Candle(double open, double high, double low, double close, double volume, xtime::timestamp_t timestamp) {
             Candle::open = open;
             Candle::high = high;
             Candle::low = low;
