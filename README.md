@@ -13,7 +13,7 @@
 * Сжатые qhs* данные можно конвертировать обратно в CSV формат или слить вместе (слияние пока не поддерживается)
 
 Пример сжатия данных, котировки от Финам: [https://github.com/NewYaroslav/finam_history_quotes](https://github.com/NewYaroslav/finam_history_quotes)
-
+Котировки от Binary: [https://github.com/NewYaroslav/binary.com_history_quotes](https://github.com/NewYaroslav/binary.com_history_quotes)
 ## Особенности
 
 * Header-only бибиотеку легко подключить в проект
