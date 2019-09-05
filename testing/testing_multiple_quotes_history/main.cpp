@@ -12,7 +12,7 @@ int main(int argc, char *argv[]) {
     std::cout << "start!" << std::endl;
     /* Проверяем работу хранилищая котировок для нескольких символов
      */
-    std::vector<std::string> paths = {"AUDCHF.qhs4", "AUDUSD.qhs4", "EURCHF.qhs4", "EURGBP.qhs4", "EURJPY.qhs4"};
+    std::vector<std::string> paths = {"../../storage/AUDCHF.qhs4", "../../storage/AUDUSD.qhs4", "../../storage/EURCHF.qhs4", "../../storage/EURGBP.qhs4", "../../storage/EURJPY.qhs4"};
     /* инициализируем класс для хранения исторических данных котировок с неправильными параметрами
      * если класс работает верно, он загрузит параметры из файла, и не будет использовать указанные в
      * конструкторе параметры
