@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
     /* Проверяем работу хранилищая котировок
      * Прочитаем данные Финама и сверим их с данными в Метатрейдере
      */
-    std::string path = "EURUSD.qhs4"; // путь к файлу
+    std::string path = "../../storage/EURGBP.qhs4"; // путь к файлу
 
     /* инициализируем класс для хранения исторических данных котировок с неправильными параметрами
      * если класс работает верно, он загрузит параметры из файла, и не будет использовать указанные в
@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
     /* Проверим, как работает алгоритм получения количесвта десятичных знаков после запятой
      *
      */
-    std::string path2 = "D:/_repoz/finam_history_quotes/storage/AUDJPY.qhs4";
+    std::string path2 = "../../storage/EURJPY.qhs4";
     xquotes_history::QuotesHistory<> iQuotesHistory2(
             path2,
             xquotes_history::PRICE_CLOSE,
