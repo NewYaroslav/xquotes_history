@@ -172,8 +172,10 @@ namespace xquotes_csv {
             if(parse_line(buffer, timestamp, open, high, low, close, volume)) {
                 if(time_zone == CET_TO_GMT) timestamp = xtime::convert_cet_to_gmt(timestamp);
                 else if(time_zone == EET_TO_GMT) timestamp = xtime::convert_eet_to_gmt(timestamp);
+                else if(time_zone == MSK_TO_GMT) timestamp = timestamp - 3*xtime::SECONDS_IN_HOUR;
                 else if(time_zone == GMT_TO_CET) timestamp = xtime::convert_gmt_to_cet(timestamp);
                 else if(time_zone == GMT_TO_EET) timestamp = xtime::convert_gmt_to_eet(timestamp);
+                else if(time_zone == GMT_TO_MSK) timestamp = timestamp + 3*xtime::SECONDS_IN_HOUR;
                 f(Candle(open, high, low, close, volume, timestamp), false);
             }
         }
@@ -280,11 +282,14 @@ namespace xquotes_csv {
                 old_candle = candle;
             }
 
-            xtime::timestamp_t t = time_zone == CET_TO_GMT ?
-                xtime::convert_cet_to_gmt(candle.timestamp) : time_zone == EET_TO_GMT ?
-                xtime::convert_eet_to_gmt(candle.timestamp) : time_zone == GMT_TO_CET ?
-                xtime::convert_gmt_to_cet(candle.timestamp) : time_zone == GMT_TO_EET ?
-                xtime::convert_gmt_to_eet(candle.timestamp) : candle.timestamp;
+            xtime::timestamp_t t =
+                time_zone == CET_TO_GMT ? xtime::convert_cet_to_gmt(candle.timestamp) :
+                time_zone == EET_TO_GMT ? xtime::convert_eet_to_gmt(candle.timestamp) :
+                time_zone == MSK_TO_GMT ? candle.timestamp - 3*xtime::SECONDS_IN_HOUR :
+                time_zone == GMT_TO_CET ? xtime::convert_gmt_to_cet(candle.timestamp) :
+                time_zone == GMT_TO_EET ? xtime::convert_gmt_to_eet(candle.timestamp) :
+                time_zone == GMT_TO_MSK ? candle.timestamp + 3*xtime::SECONDS_IN_HOUR :
+                candle.timestamp;
             xtime::DateTime date_time(t);
             std::fill(buffer, buffer + BUFFER_SIZE, '\0');
             switch(type_csv) {

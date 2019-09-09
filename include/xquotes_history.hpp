@@ -289,11 +289,11 @@ namespace xquotes_history {
             if(is_use_dictionary) err = read_compressed_subfile(key, buffer, buffer_size);
             else err = read_subfile(key, buffer, buffer_size);
             if(err != OK) {
-                if(buffer != NULL) delete buffer;
+                if(buffer != NULL) delete [] buffer;
                 return err;
             }
             err = convert_buffer_to_candles(candles, buffer, buffer_size);
-            delete buffer;
+            delete [] buffer;
             return err;
         }
 
@@ -611,7 +611,7 @@ namespace xquotes_history {
             int err_write = 0;
             if(is_use_dictionary) err_write = write_compressed_subfile(xtime::get_day(timestamp), buffer, buffer_size);
             else err_write = write_subfile(xtime::get_day(timestamp), buffer, buffer_size);
-            delete buffer;
+            delete [] buffer;
             return err_convert != OK ? err_convert : err_write;
         }
 

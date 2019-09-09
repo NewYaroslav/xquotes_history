@@ -302,7 +302,7 @@ namespace xquotes_storage {
                             new_file.write(copy_buffer, subfiles[i].size);
                             add_or_update_subfiles(subfiles[i].key, subfiles[i].size, new_file_link, new_subfiles);
                         }
-                        delete copy_buffer;
+                        delete [] copy_buffer;
                         new_file_link += subfiles[i].size;
                     } else {
                         // если это переписываемый файл, пишем новые данные в новый файл
@@ -593,12 +593,12 @@ namespace xquotes_storage {
             if(ZSTD_isError(compressed_size)) {
                 //std::cout << "compression error: " << ZSTD_getErrorName(compress_size) << std::endl;
                 ZSTD_freeCCtx(cctx);
-                delete compressed_file_buffer;
+                delete [] compressed_file_buffer;
                 return SUBFILES_COMPRESSION_ERROR;
             }
             int err = write_subfile(key, compressed_file_buffer, compressed_size);
             ZSTD_freeCCtx(cctx);
-            delete compressed_file_buffer;
+            delete [] compressed_file_buffer;
             return err;
         }
 
@@ -631,13 +631,13 @@ namespace xquotes_storage {
             const unsigned long long decompress_file_size = ZSTD_getFrameContentSize(input_subfile_buffer, last_size_found);
             if(decompress_file_size == ZSTD_CONTENTSIZE_ERROR) {
                 //std::cout << file_name << " it was not compressed by zstd." << std::endl;
-                delete input_subfile_buffer;
+                delete [] input_subfile_buffer;
                 input_subfile_buffer = NULL;
                 return NOT_DECOMPRESS_FILE;
             } else
             if(decompress_file_size == ZSTD_CONTENTSIZE_UNKNOWN) {
                 //std::cout << file_name << " original size unknown." << std::endl;
-                delete input_subfile_buffer;
+                delete [] input_subfile_buffer;
                 input_subfile_buffer = NULL;
                 return NOT_DECOMPRESS_FILE;
             }
@@ -659,8 +659,8 @@ namespace xquotes_storage {
             if(ZSTD_isError(subfile_size)) {
                 //std::cout << "error decompressin: " << ZSTD_getErrorName(subfile_size) << std::endl;
                 ZSTD_freeDCtx(dctx);
-                delete buffer;
-                delete input_subfile_buffer;
+                delete [] buffer;
+                delete [] input_subfile_buffer;
                 buffer =  NULL;
                 input_subfile_buffer = NULL;
                 buffer_size = 0;
@@ -668,7 +668,7 @@ namespace xquotes_storage {
             }
             buffer_size = subfile_size;
             ZSTD_freeDCtx(dctx);
-            delete input_subfile_buffer;
+            delete [] input_subfile_buffer;
             input_subfile_buffer = NULL;
             return OK;
         }
@@ -724,7 +724,7 @@ namespace xquotes_storage {
 
         ~Storage() {
             close();
-            if(is_mem_dict_file) delete dictionary_file_buffer;
+            if(is_mem_dict_file) delete [] dictionary_file_buffer;
         }
     };
 }

@@ -129,6 +129,10 @@ int csv_to_hex(const int argc, char *argv[]) {
         else
         if(value == "-gmteet") time_zone = xquotes_history::GMT_TO_EET;
         else
+        if(value == "-gmtmsk") time_zone = xquotes_history::GMT_TO_MSK;
+        else
+        if(value == "-mskgmt") time_zone = xquotes_history::MSK_TO_GMT;
+        else
         if(value == "-h") is_read_header = true;
         else
         if((value == "path_hex") && i < argc) {
@@ -260,6 +264,10 @@ int csv_to_qhs(const int argc, char *argv[]) {
         if(value == "-gmtcet") time_zone = xquotes_history::GMT_TO_CET;
         else
         if(value == "-gmteet") time_zone = xquotes_history::GMT_TO_EET;
+        else
+        if(value == "-gmtmsk") time_zone = xquotes_history::GMT_TO_MSK;
+        else
+        if(value == "-mskgmt") time_zone = xquotes_history::MSK_TO_GMT;
         else
         if(value == "-h") is_read_header = true;
         else
@@ -472,6 +480,10 @@ int qhs_to_csv(const int argc, char *argv[]) {
         else
         if(value == "-gmteet") time_zone = xquotes_history::GMT_TO_EET;
         else
+        if(value == "-gmtmsk") time_zone = xquotes_history::GMT_TO_MSK;
+        else
+        if(value == "-mskgmt") time_zone = xquotes_history::MSK_TO_GMT;
+        else
         if((value == "header") && i < argc) {
             header = std::string(argv[i + 1]);
             is_write_header = true;
@@ -572,6 +584,10 @@ int qhs_date(const int argc, char *argv[]) {
         if(value == "-gmtcet") time_zone = xquotes_history::GMT_TO_CET;
         else
         if(value == "-gmteet") time_zone = xquotes_history::GMT_TO_EET;
+        else
+        if(value == "-gmtmsk") time_zone = xquotes_history::GMT_TO_MSK;
+        else
+        if(value == "-mskgmt") time_zone = xquotes_history::MSK_TO_GMT;
     }
     if(path_storage == "") {
         std::cout << "error! no path or directory specified" << std::endl;
@@ -599,6 +615,10 @@ int qhs_date(const int argc, char *argv[]) {
         min_timestamp = xtime::convert_eet_to_gmt(min_timestamp);
         max_timestamp = xtime::convert_eet_to_gmt(max_timestamp);
     } else
+    if(time_zone == xquotes_history::MSK_TO_GMT) {
+        min_timestamp = min_timestamp - 3*xtime::SECONDS_IN_HOUR;
+        max_timestamp = max_timestamp - 3*xtime::SECONDS_IN_HOUR;
+    } else
     if(time_zone == xquotes_history::GMT_TO_CET) {
         min_timestamp = xtime::convert_gmt_to_cet(min_timestamp);
         max_timestamp = xtime::convert_gmt_to_cet(max_timestamp);
@@ -606,6 +626,10 @@ int qhs_date(const int argc, char *argv[]) {
     if(time_zone == xquotes_history::GMT_TO_EET) {
         min_timestamp = xtime::convert_gmt_to_eet(min_timestamp);
         max_timestamp = xtime::convert_gmt_to_eet(max_timestamp);
+    } else
+    if(time_zone == xquotes_history::GMT_TO_MSK) {
+        min_timestamp = min_timestamp + 3*xtime::SECONDS_IN_HOUR;
+        max_timestamp = max_timestamp + 3*xtime::SECONDS_IN_HOUR;
     }
 
     std::cout << "date: " << xtime::get_str_date(min_timestamp) << " - " << xtime::get_str_date(max_timestamp) << std::endl;
