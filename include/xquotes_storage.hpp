@@ -712,6 +712,14 @@ namespace xquotes_storage {
          */
         int get_num_subfiles() {return subfiles.size();};
 
+        /** \brief Получить ключ подфайла
+         * \param ind индекс подфайла
+         * \return ключ подфайла
+         */
+        key_t get_key_subfiles(const int &ind) {
+            return subfiles[ind].key;
+        }
+
         /** \brief Получить заметку файла
          * \return заметка файла (число, которое может хранить пользовательские биты настроек)
          */

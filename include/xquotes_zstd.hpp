@@ -29,15 +29,114 @@
  */
 #ifndef XQUOTES_ZSTDEASY_HPP_INCLUDED
 #define XQUOTES_ZSTDEASY_HPP_INCLUDED
-//------------------------------------------------------------------------------
+
+#include "xquotes_storage.hpp"
 #include "banana_filesystem.hpp"
 #include "dictBuilder/zdict.h"
 #include "zstd.h"
 #include <cstring>
-//------------------------------------------------------------------------------
+
 namespace xquotes_zstd {
     using namespace xquotes_common;
-//------------------------------------------------------------------------------
+
+    std::string convert_hex_to_string(unsigned char value) {
+        char hex_string[32] = {};
+        sprintf(hex_string,"0x%.2X", value);
+        return std::string(hex_string);
+    }
+
+    std::string str_toupper(std::string s) {
+        std::transform(s.begin(), s.end(), s.begin(),
+            [](unsigned char c){ return std::toupper(c); });
+        return s;
+    }
+
+    /** \brief Тренируйте словарь из массива образцов
+    * \param path путь к файлам
+    * \param file_name имя файл словаря, который будет сохранен по окончанию обучения
+    * \param dict_buffer_capacit размер словаря
+    * \return венет 0 в случае успеха
+    */
+    int train_zstd(
+            xquotes_storage::Storage &storage,
+            const std::vector<int> &subfiles_list,
+            const std::string &name,
+            const size_t &dict_buffer_capacit = 102400,
+            const bool is_file = true) {
+        size_t all_files_size = 0;
+        void *samples_buffer = NULL;
+
+        size_t num_files = 0;
+        size_t *samples_size = NULL;
+        for(size_t i = 0; i < subfiles_list.size(); ++i) {
+            unsigned long file_size = 0;
+            int err_stor = storage.get_subfile_size(subfiles_list[i], file_size);
+            if(err_stor == OK && file_size > 0) {
+                num_files++;
+                size_t start_pos = all_files_size;
+                all_files_size += file_size;
+                std::cout << "buffer size: " << all_files_size << std::endl;
+                samples_buffer = realloc(samples_buffer, all_files_size);
+                samples_size = (size_t*)realloc((void*)samples_size, num_files * sizeof(size_t));
+                samples_size[num_files - 1] = file_size;
+                //int err = bf::load_file(subfiles_list[i], samples_buffer, all_files_size, start_pos);
+                char *point_buffer = (char*)samples_buffer + start_pos;
+                int err_read = storage.read_subfile(subfiles_list[i], point_buffer, file_size);
+
+                if(err_read != OK) {
+                    std::cout << "load file: error, " << subfiles_list[i] << std::endl;
+                    if(samples_buffer != NULL)
+                        free(samples_buffer);
+                    if(samples_size != NULL)
+                        free(samples_size);
+                    return NOT_OPEN_FILE;
+                } else {
+                    std::cout << "load file: " << subfiles_list[i] << " #" << num_files << "/" << subfiles_list.size() << std::endl;
+                }
+            } else {
+                std::cout << "buffer size: error, " << subfiles_list[i] << std::endl;
+                if(samples_buffer != NULL)
+                    free(samples_buffer);
+                if(samples_size != NULL)
+                    free(samples_size);
+                return NOT_OPEN_FILE;
+            }
+        }
+
+        void *dict_buffer = NULL;
+        dict_buffer = malloc(dict_buffer_capacit);
+        memset(dict_buffer, 0, dict_buffer_capacit);
+        size_t file_size = ZDICT_trainFromBuffer(dict_buffer, dict_buffer_capacit, samples_buffer, samples_size, num_files);
+
+        if(is_file) {
+            size_t err = bf::write_file(name, dict_buffer, file_size);
+            return err > 0 ? OK : NOT_WRITE_FILE;
+        } else {
+            // сохраним как с++ файл
+            unsigned char *dict_buffer_point = (unsigned char *)dict_buffer;
+            std::string out;
+            out += "#ifndef XQUOTES_DICTIONARY_" + name + "_HPP_INCLUDED\n";
+            out += "#define XQUOTES_DICTIONARY_" + name + "_HPP_INCLUDED\n";
+            out += "namespace zstd_dictionary {\n";
+            out += "\tconst static unsigned char dictionary_" + name + "[" + std::to_string(file_size) + "] = {\n";
+            out += "\t\t";
+            for(size_t j = 0; j < file_size; ++j) {
+                if(j % 16 == 0) {
+                    out += "\n\t\t";
+                }
+                out += convert_hex_to_string(dict_buffer_point[j]) + ",";
+                if(j == file_size - 1) {
+                    out += "\n\t};\n";
+                }
+            }
+            out += "}\n";
+            out += "#endif // XQUOTES_DICTIONARY_" + name + "_HPP_INCLUDED\n";
+            std::string path_out = "dictionary_" + name + ".hpp";
+            size_t err = bf::write_file(path_out, (void*)out.c_str(), out.size());
+            return err > 0 ? OK : NOT_WRITE_FILE;
+        }
+    }
+
     /** \brief Тренируйте словарь из массива образцов
     * \param path путь к файлам
     * \param file_name имя файл словаря, который будет сохранен по окончанию обучения
@@ -84,7 +183,6 @@ namespace xquotes_zstd {
             }
         }
         void *dict_buffer = NULL;
-        //size_t dict_buffer_capacit = 1024*100;
         dict_buffer = malloc(dict_buffer_capacit);
         memset(dict_buffer, 0, dict_buffer_capacit);
         size_t file_size = ZDICT_trainFromBuffer(dict_buffer, dict_buffer_capacit, samples_buffer, samples_size, num_files);

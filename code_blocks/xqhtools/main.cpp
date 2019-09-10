@@ -1,12 +1,17 @@
 #include "xquotes_files.hpp"
 #include "xquotes_csv.hpp"
 #include "xquotes_history.hpp"
+#include "xquotes_zstd.hpp"
 #include <vector>
 #include <array>
 #include <iostream>
 #include <random>
 #include <ctime>
 #include <stdio.h>
+#include <random>
+#include <ctime>
+
+#define ZQHTOOLS_VERSION "1.1"
 
 enum {
     XQHTOOLS_CSV_TO_HEX = 0,
@@ -14,6 +19,8 @@ enum {
     XQHTOOLS_QHS_TO_CSV,
     XQHTOOLS_QHS_MERGE,
     XQHTOOLS_QHS_DATE,
+    XQHTOOLS_ZSTD_TRAIN,
+    XQHTOOLS_VERSION,
 };
 
 // получаем команду из командной строки
@@ -26,6 +33,10 @@ int csv_to_qhs(const int argc, char *argv[]);
 int qhs_to_csv(const int argc, char *argv[]);
 // получить дату
 int qhs_date(const int argc, char *argv[]);
+// получить дату
+int qhs_date(const int argc, char *argv[]);
+// обучение zstd
+int zstd_train(const int argc, char *argv[]);
 
 int main(int argc, char *argv[]) {
     int cmd = 0;
@@ -33,35 +44,39 @@ int main(int argc, char *argv[]) {
     if(err != 0) return err;
 
     if(cmd == XQHTOOLS_CSV_TO_HEX) {
-        int err = csv_to_hex(argc, argv);
-        if(err != 0) return err;
+        return csv_to_hex(argc, argv);
     } else
     if(cmd == XQHTOOLS_CSV_TO_QHS) {
-        int err = csv_to_qhs(argc, argv);
-        if(err != 0) return err;
+        return csv_to_qhs(argc, argv);
     } else
     if(cmd == XQHTOOLS_QHS_TO_CSV) {
-        int err = qhs_to_csv(argc, argv);
-        if(err != 0) return err;
+        return qhs_to_csv(argc, argv);
     } else
     if(cmd == XQHTOOLS_QHS_DATE) {
-        int err = qhs_date(argc, argv);
-        if(err != 0) return err;
+        return qhs_date(argc, argv);
+    } else
+    if(cmd == XQHTOOLS_ZSTD_TRAIN) {
+        return zstd_train(argc, argv);
     }
     return 0;
 }
 
 int get_cmd(int &cmd, const int argc, char *argv[]) {
     // обрабатываем команду
+    bool is_train = false;
     bool is_merge = false;
     bool is_date = false;
     bool is_convert_csv = false;
     bool is_convert_storage = false;
     bool is_hex = false;
     bool is_csv = false;
+    bool is_raw = false;
     bool is_storage = false;
+    bool is_raw_storage = false;
     for(int i = 1; i < argc; ++i) {
         std::string value = std::string(argv[i]);
+        if(value == "train") is_train = true;
+        else
         if(value == "merge") is_merge = true;
         else
         if(value == "date") is_date = true;
@@ -75,7 +90,21 @@ int get_cmd(int &cmd, const int argc, char *argv[]) {
         if(value == "path_csv") is_csv = true;
         else
         if(value == "path_storage") is_storage = true;
+        else
+        if(value == "path_raw_storage") is_raw_storage = true;
+        else
+        if(value == "path_raw") is_raw = true;
+        else
+        if(value == "version") {
+            std::cout << "program version " << std::string(ZQHTOOLS_VERSION) << std::endl;
+            return XQHTOOLS_VERSION;
+        }
     }
+
+    if(is_train && !is_raw && !is_raw_storage) {
+        std::cout << "error! no file specified" << std::endl;
+        return -1;
+    } else
     if(is_date && !is_storage) {
         std::cout << "error! no file specified" << std::endl;
         return -1;
@@ -87,6 +116,9 @@ int get_cmd(int &cmd, const int argc, char *argv[]) {
     if(is_merge && is_hex) {
         std::cout << "error! hex file merging is not supported" << std::endl;
         return -1;
+    } else
+    if(is_train && (is_raw_storage || is_raw)) {
+        cmd = XQHTOOLS_ZSTD_TRAIN;
     } else
     if(is_date && is_storage) {
         cmd = XQHTOOLS_QHS_DATE;
@@ -135,10 +167,10 @@ int csv_to_hex(const int argc, char *argv[]) {
         else
         if(value == "-h") is_read_header = true;
         else
-        if((value == "path_hex") && i < argc) {
+        if((value == "path_hex") && (i + 1) < argc) {
             path_hex = std::string(argv[i + 1]);
         } else
-        if((value == "path_csv") && i < argc) {
+        if((value == "path_csv") && (i + 1) < argc) {
             path_csv = std::string(argv[i + 1]);
         } else
         if("-oc") {
@@ -271,10 +303,10 @@ int csv_to_qhs(const int argc, char *argv[]) {
         else
         if(value == "-h") is_read_header = true;
         else
-        if((value == "path_storage") && i < argc) {
+        if((value == "path_storage") && (i + 1) < argc) {
             path_storage = std::string(argv[i + 1]);
         } else
-        if((value == "path_csv") && i < argc) {
+        if((value == "path_csv") && (i + 1) < argc) {
             path_csv = std::string(argv[i + 1]);
         } else
         if(value == "-oc") {
@@ -484,15 +516,15 @@ int qhs_to_csv(const int argc, char *argv[]) {
         else
         if(value == "-mskgmt") time_zone = xquotes_history::MSK_TO_GMT;
         else
-        if((value == "header") && i < argc) {
+        if((value == "header") && (i + 1) < argc) {
             header = std::string(argv[i + 1]);
             is_write_header = true;
         }
         else
-        if((value == "path_storage") && i < argc) {
+        if((value == "path_storage") && (i + 1) < argc) {
             path_storage = std::string(argv[i + 1]);
         } else
-        if((value == "path_csv") && i < argc) {
+        if((value == "path_csv") && (i + 1) < argc) {
             path_csv = std::string(argv[i + 1]);
         } else
         if(value == "-m4") {
@@ -574,7 +606,7 @@ int qhs_date(const int argc, char *argv[]) {
     std::string path_storage = "";
     for(int i = 1; i < argc; ++i) {
         std::string value = std::string(argv[i]);
-        if((value == "path_storage") && i < argc) {
+        if((value == "path_storage") && (i + 1) < argc) {
             path_storage = std::string(argv[i + 1]);
         } else
         if(value == "-cetgmt" || value == "-finam") time_zone = xquotes_history::CET_TO_GMT;
@@ -633,5 +665,74 @@ int qhs_date(const int argc, char *argv[]) {
     }
 
     std::cout << "date: " << xtime::get_str_date(min_timestamp) << " - " << xtime::get_str_date(max_timestamp) << std::endl;
+    return 0;
+}
+
+int zstd_train(const int argc, char *argv[]) {
+    std::string path_raw_storage = "";
+    std::string path_raw = "";
+    std::string name = "";
+    bool is_rnd = false;
+    bool is_cpp = false;
+    int fill_factor = 100;
+    size_t dictionary_capacity = 102400;
+    for(int i = 1; i < argc; ++i) {
+        std::string value = std::string(argv[i]);
+        if((value == "dictionary_file") && (i + 1) < argc) {
+            name = std::string(argv[i + 1]);
+        } else
+        if((value == "path_raw_storage") && (i + 1) < argc) {
+            path_raw_storage = std::string(argv[i + 1]);
+        } else
+        if((value == "path_raw") && (i + 1) < argc) {
+            path_raw = std::string(argv[i + 1]);
+        } else
+        if((value == "fill_factor") && (i + 1) < argc) {
+            fill_factor = atoi(argv[i + 1]);
+            if(fill_factor > 100) fill_factor = 100;
+            if(fill_factor < 0) fill_factor = 0;
+        } else
+        if((value == "dictionary_capacity") && (i + 1) < argc) {
+            dictionary_capacity = atoi(argv[i + 1]);
+        } else
+        if(value == "-rnd") is_rnd = true;
+        else
+        if(value == "-cpp") is_cpp = true;
+    }
+    if(path_raw_storage != "") {
+        xquotes_storage::Storage iStorage(path_raw_storage);
+        int num_subfiles = iStorage.get_num_subfiles();
+        if(num_subfiles == 0) {
+            std::cout << "error! no subfiles!" << std::endl;
+            return -1;
+        }
+        int user_num_subfiles = num_subfiles;
+        if(fill_factor < 100) {
+            user_num_subfiles *= fill_factor;
+            user_num_subfiles /= 100;
+        }
+        if(user_num_subfiles == 0) {
+            std::cout << "error! no subfiles!" << std::endl;
+            return -1;
+        }
+        std::vector<int> subfiles_list;
+        std::mt19937 gen;
+        gen.seed(time(0));
+        std::uniform_int_distribution<> denominator(0, user_num_subfiles);
+        for(int i = 0; i < user_num_subfiles; ++i) {
+            if(is_rnd) {
+                subfiles_list.push_back(iStorage.get_key_subfiles(denominator(gen)));
+            } else {
+                subfiles_list.push_back(iStorage.get_key_subfiles(i));
+            }
+        }
+
+        bool is_file = is_cpp ? false : true;
+        int err = xquotes_zstd::train_zstd(iStorage, subfiles_list, name, dictionary_capacity, is_file);
+        if(err != xquotes_zstd::OK) {
+            std::cout << "error!" << std::endl;
+            return -1;
+        }
+    }
     return 0;
 }
