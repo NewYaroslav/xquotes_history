@@ -152,9 +152,9 @@ namespace xquotes_csv {
      * \return
      */
     int read_file(
-            std::string file_name,
-            bool is_read_header,
-            int time_zone,
+            const std::string &file_name,
+            const bool &is_read_header,
+            const int &time_zone,
             std::function<void (const Candle candle, const bool is_end)> f) {
         std::ifstream file(file_name);
         if(!file.is_open()) {
@@ -224,15 +224,15 @@ namespace xquotes_csv {
      * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
      */
     int write_file(
-            const std::string file_name,
-            const std::string header,
-            bool is_write_header,
-            const xtime::timestamp_t start_timestamp,
-            const xtime::timestamp_t stop_timestamp,
-            const int type_csv,
-            const int type_correction_candle,
-            const int time_zone,
-            const int decimal_places,
+            const std::string &file_name,
+            const std::string &header,
+            const bool &is_write_header,
+            const xtime::timestamp_t &start_timestamp,
+            const xtime::timestamp_t &stop_timestamp,
+            const int &type_csv,
+            const int &type_correction_candle,
+            const int &time_zone,
+            const int &decimal_places,
             std::function<bool(Candle &candle, const xtime::timestamp_t timestamp)> f) {
         std::ofstream file(file_name);
         if(!file.is_open()) {

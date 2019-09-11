@@ -109,7 +109,7 @@ namespace xquotes_history {
          * \param ind индекс элемента массива цен
          * \return метка времени начала дня
          */
-        inline xtime::timestamp_t get_prices_timestamp(const int ind) {
+        inline xtime::timestamp_t get_prices_timestamp(const int &ind) {
             return candles_array_days[ind][0].timestamp;
         }
 
@@ -132,7 +132,8 @@ namespace xquotes_history {
          * \param timestamp метка времени (должна быть всегда в начале дня!)
          * \return указатель на массив свечей или NULL, если даных нет в списке
          */
-        typename std::vector<candles_array_t>::iterator find_candles_array(const xtime::timestamp_t timestamp) {
+        typename std::vector<candles_array_t>::iterator find_candles_array(
+                const xtime::timestamp_t &timestamp) {
             if(candles_array_days.size() == 0) return candles_array_days.end();
             auto prices_it = std::lower_bound(
                 candles_array_days.begin(),
@@ -175,7 +176,9 @@ namespace xquotes_history {
          * \param minute_day минута дня
          * \return вернет true если цена была найдена
          */
-        inline bool set_start_candles_forecast(const xtime::timestamp_t timestamp, const int minute_day) {
+        inline bool set_start_candles_forecast(
+                const xtime::timestamp_t &timestamp,
+                const int &minute_day) {
             auto found_candles_array = find_candles_array(timestamp);
             if(found_candles_array == candles_array_days.end()) return false;
             ind_forecast_day = found_candles_array - candles_array_days.begin();
@@ -186,7 +189,9 @@ namespace xquotes_history {
         /** \brief Заполнить метки времени массива свечей
          * Данный метод нужен для внутреннего использования
          */
-        void fill_timestamp(std::array<CANDLE_TYPE, MINUTES_IN_DAY>& candles, const xtime::timestamp_t timestamp) {
+        void fill_timestamp(
+                std::array<CANDLE_TYPE, MINUTES_IN_DAY>& candles,
+                const xtime::timestamp_t &timestamp) {
             candles[0].timestamp = timestamp;
             for(int i = 1; i < MINUTES_IN_DAY; ++i) {
                 candles[i].timestamp = candles[i - 1].timestamp + xtime::SECONDS_IN_MINUTE;
@@ -199,7 +204,7 @@ namespace xquotes_history {
         int convert_candles_to_buffer(
                 const std::array<CANDLE_TYPE, MINUTES_IN_DAY>& candles,
                 char* buffer,
-                const unsigned long buffer_size) {
+                const unsigned long &buffer_size) {
             if(buffer_size == ONLY_ONE_PRICE_BUFFER_SIZE) {
                 if(price_type == PRICE_CLOSE) {
                     for(int i = 0; i < MINUTES_IN_DAY; ++i) {
@@ -242,7 +247,10 @@ namespace xquotes_history {
         /** \brief Конвертировать буфер в массив свечей
          * Данный метод нужен для внутреннего использования
          */
-        int convert_buffer_to_candles(std::array<CANDLE_TYPE, MINUTES_IN_DAY>& candles, const char* buffer, const unsigned long buffer_size) {
+        int convert_buffer_to_candles(
+                std::array<CANDLE_TYPE, MINUTES_IN_DAY>& candles,
+                const char *buffer,
+                const unsigned long &buffer_size) {
             if(buffer_size == ONLY_ONE_PRICE_BUFFER_SIZE) {
                 for(int i = 0; i < MINUTES_IN_DAY; ++i) {
                     candles[i].close = convert_to_double(((price_t*)buffer)[i]);
@@ -281,7 +289,7 @@ namespace xquotes_history {
          * \param timestamp метка времени (должна быть всегда в начале дня!)
          * \return состояние ошибки
          */
-        int read_candles(std::array<CANDLE_TYPE, MINUTES_IN_DAY>& candles, const key_t key, const xtime::timestamp_t timestamp) {
+        int read_candles(std::array<CANDLE_TYPE, MINUTES_IN_DAY>& candles, const key_t &key, const xtime::timestamp_t &timestamp) {
             int err = 0;
             char *buffer = NULL;
             unsigned long buffer_size = 0;
@@ -303,7 +311,7 @@ namespace xquotes_history {
          * \param indent_dn отступ от временная метки в днях на уменьшение времени
          * \param indent_up отступ от временная метки в днях на увеличение времени
          */
-        void read_candles_data(const xtime::timestamp_t timestamp, const int indent_dn, const int indent_up) {
+        void read_candles_data(const xtime::timestamp_t &timestamp, const int &indent_dn, const int &indent_up) {
             int num_days = indent_dn + indent_up + 1;
             xtime::timestamp_t start_ind_timestamp = timestamp - indent_dn * xtime::SECONDS_IN_DAY;
             int start_ind_day = xtime::get_day(start_ind_timestamp);
@@ -361,7 +369,7 @@ namespace xquotes_history {
          * \return вернет 0 в случае успеха
          */
         template <typename T>
-        int find_candle(T &candle, const xtime::timestamp_t timestamp) {
+        int find_candle(T &candle, const xtime::timestamp_t &timestamp) {
             int minute_day = xtime::get_minute_day(timestamp);
             const xtime::timestamp_t timestamp_start_day = xtime::get_first_timestamp_day(timestamp);
             auto found_candles_array = find_candles_array(timestamp_start_day);
@@ -381,7 +389,7 @@ namespace xquotes_history {
          * Если подфайлы есть, то заметку считываем из файла и игнорируем настройки пользователя
          * \param user_price_type пользовательная настройка цены
          */
-        void update_file_notes(const int user_price_type) {
+        void update_file_notes(const int &user_price_type) {
 #           ifdef XQUOTES_USE_DICTIONARY_CURRENCY_PAIR
             const unsigned int PRICE_TYPE_NOTES_MASK = 0x0F;
             const unsigned int COMPRESSION_BIT = 0x10;
@@ -417,7 +425,7 @@ namespace xquotes_history {
 
         /** \brief Проверка выходного дня
          */
-        static bool check_day_off(const key_t key) {
+        static bool check_day_off(const key_t &key) {
             return xtime::is_day_off_for_day(key);
         }
 
@@ -430,7 +438,10 @@ namespace xquotes_history {
          * \param user_price_type тип цены (на выбор: PRICE_CLOSE, PRICE_OHLC, PRICE_OHLCV)
          * \param dictionary_file файл словаря (если указано "", то считываются несжатые файлы)
          */
-        QuotesHistory(const std::string path, const int user_price_type, const std::string dictionary_file = "") :
+        QuotesHistory(
+                const std::string &path,
+                const int &user_price_type,
+                const std::string &dictionary_file = "") :
                 Storage(path, dictionary_file), path_(path) {
             std::vector<std::string> element;
             bf::parse_path(path, element);
@@ -445,7 +456,11 @@ namespace xquotes_history {
          * \param dictionary_buffer указатель на буфер словаря
          * \param dictionary_buffer_size размер буфера словаря
          */
-        QuotesHistory(const std::string path, const int user_price_type, const char *dictionary_buffer, const size_t dictionary_buffer_size) :
+        QuotesHistory(
+                const std::string &path,
+                const int &user_price_type,
+                const char *dictionary_buffer,
+                const size_t &dictionary_buffer_size) :
                 Storage(path, dictionary_buffer, dictionary_buffer_size), path_(path) {
             std::vector<std::string> element;
             bf::parse_path(path, element);
@@ -459,7 +474,10 @@ namespace xquotes_history {
          * \param price_type тип цены (на выбор: PRICE_CLOSE, PRICE_OHLC, PRICE_OHLCV или PRICE_OHLC_AUDCAD и пр..)
          * \param option настройки хранилища котировок (использовать сжатие  - USE_COMPRESSION, иначе DO_NOT_USE_COMPRESSION)
          */
-        QuotesHistory(const std::string path, const int user_price_type, const int option) :
+        QuotesHistory(
+                const std::string &path,
+                const int &user_price_type,
+                const int &option) :
                 Storage(path), path_(path) {
             if(option == USE_COMPRESSION) is_use_dictionary = true;
             update_file_notes(user_price_type);
@@ -589,7 +607,7 @@ namespace xquotes_history {
          * \param indent_day_dn Отступ от даты загрузки в днях к началу исторических данных
          * \param indent_day_up Отступ от даты загрузки в днях к концу исторических данных
          */
-        void set_indent(const int indent_day_dn, const int indent_day_up) {
+        void set_indent(const int &indent_day_dn, const int &indent_day_up) {
             QuotesHistory::indent_day_up = indent_day_up;
             QuotesHistory::indent_day_dn = indent_day_dn;
         }
@@ -603,7 +621,7 @@ namespace xquotes_history {
          */
         int write_candles(
                 const std::array<CANDLE_TYPE, MINUTES_IN_DAY>& candles,
-                const xtime::timestamp_t timestamp) {
+                const xtime::timestamp_t &timestamp) {
             const size_t buffer_size = price_type == PRICE_OHLCV ? CANDLE_WITH_VOLUME_BUFFER_SIZE :
                 price_type == PRICE_OHLC ? CANDLE_WITHOUT_VOLUME_BUFFER_SIZE : ONLY_ONE_PRICE_BUFFER_SIZE;
             char *buffer = new char[buffer_size];
@@ -623,7 +641,10 @@ namespace xquotes_history {
          * По умолчанию включена оптимизация последовательного считывания минут OPTIMIZATION_SEQUENTIAL_READING
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int get_candle(CANDLE_TYPE &candle, const xtime::timestamp_t timestamp, const int optimization = OPTIMIZATION_SEQUENTIAL_READING) {
+        int get_candle(
+                CANDLE_TYPE &candle,
+                const xtime::timestamp_t &timestamp,
+                const int &optimization = OPTIMIZATION_SEQUENTIAL_READING) {
             // сначала проверяем прогноз на запрос на следующую свечу
             if(optimization == WITHOUT_OPTIMIZATION) {
                 return find_candle(candle, timestamp);
@@ -664,7 +685,11 @@ namespace xquotes_history {
          * По умолчанию включена оптимизация последовательного считывания минут OPTIMIZATION_SEQUENTIAL_READING
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int get_price(double& price, const xtime::timestamp_t timestamp, const int price_type = PRICE_CLOSE, const int optimization = OPTIMIZATION_SEQUENTIAL_READING) {
+        int get_price(
+                double& price,
+                const xtime::timestamp_t &timestamp,
+                const int &price_type = PRICE_CLOSE,
+                const int &optimization = OPTIMIZATION_SEQUENTIAL_READING) {
             CANDLE_TYPE candle;
             int err = get_candle(candle, timestamp, optimization);
             if(err != OK) {price = 0.0; return OK;}
@@ -681,7 +706,7 @@ namespace xquotes_history {
          * \param timestamp метка времени
          * \return вернет true, если метка времени существует
          */
-        bool check_timestamp(const xtime::timestamp_t timestamp) {
+        bool check_timestamp(const xtime::timestamp_t &timestamp) {
             return check_subfile(xtime::get_day(timestamp));
         }
 
@@ -703,11 +728,11 @@ namespace xquotes_history {
          */
         int check_binary_option(
                 int& state,
-                const int contract_type,
-                const int duration_sec,
-                const xtime::timestamp_t timestamp,
-                const int price_type = PRICE_CLOSE,
-                const int optimization = OPTIMIZATION_SEQUENTIAL_READING) {
+                const int &contract_type,
+                const int &duration_sec,
+                const xtime::timestamp_t &timestamp,
+                const int &price_type = PRICE_CLOSE,
+                const int &optimization = OPTIMIZATION_SEQUENTIAL_READING) {
             if(contract_type != BUY && contract_type != SELL) return INVALID_PARAMETER;
             if(price_type != PRICE_CLOSE && price_type != PRICE_OPEN) return INVALID_PARAMETER;
             const xtime::timestamp_t timestamp_stop = timestamp + duration_sec;
@@ -767,15 +792,15 @@ namespace xquotes_history {
          */
         int check_oreder(
                 double &profit,
-                const int contract_type,
-                const double spread,
-                const double take_profit,
-                const double stop_loss,
-                const xtime::timestamp_t timestamp,
+                const int &contract_type,
+                const double &spread,
+                const double &take_profit,
+                const double &stop_loss,
+                const xtime::timestamp_t &timestamp,
                 xtime::timestamp_t &timestamp_end,
-                const int price_type = PRICE_CLOSE,
-                const int optimization = OPTIMIZATION_SEQUENTIAL_READING,
-                const bool is_ignore_skipping = false) {
+                const int &price_type = PRICE_CLOSE,
+                const int &optimization = OPTIMIZATION_SEQUENTIAL_READING,
+                const bool &is_ignore_skipping = false) {
             profit = 0.0;
             if(price_type != PRICE_CLOSE && price_type != PRICE_OPEN) return INVALID_PARAMETER;
             double price_start, price_stop;
@@ -918,10 +943,10 @@ namespace xquotes_history {
          */
         int get_day_timestamp_list(
                 std::vector<xtime::timestamp_t>& list_timestamp,
-                const xtime::timestamp_t start_timestamp,
-                const int num_days,
-                bool is_day_off_filter = true,
-                bool is_go_back_in_time = true) {
+                const xtime::timestamp_t &start_timestamp,
+                const int &num_days,
+                const bool &is_day_off_filter = true,
+                const bool &is_go_back_in_time = true) {
             std::vector<key_t> list_subfile;
             int err = OK;
             if(is_day_off_filter) {
@@ -958,9 +983,9 @@ namespace xquotes_history {
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         int trade(
-                const xtime::timestamp_t start_timestamp,
-                const xtime::timestamp_t stop_timestamp,
-                const int step_timestamp,
+                const xtime::timestamp_t &start_timestamp,
+                const xtime::timestamp_t &stop_timestamp,
+                const int &step_timestamp,
                 std::function<void (
                     const CANDLE_TYPE &candle,
                     const int err)> f) {
@@ -984,15 +1009,15 @@ namespace xquotes_history {
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         int trade(
-                const xtime::timestamp_t start_timestamp,
-                const int step_timestamp,
-                const int num_days,
+                const xtime::timestamp_t &start_timestamp,
+                const int &step_timestamp,
+                const int &num_days,
                 std::function<void (
                     const CANDLE_TYPE &candle,
                     const int day,
                     const int err)> f,
-                const bool is_day_off_filter = true,
-                const bool is_go_back_in_time = true) {
+                const bool &is_day_off_filter = true,
+                const bool &is_go_back_in_time = true) {
             std::vector<xtime::timestamp_t> list_timestamp;
             int err = get_day_timestamp_list(
                 start_timestamp,
@@ -1017,7 +1042,7 @@ namespace xquotes_history {
          * \param is_factor При установке данного флага функция возвращает множитель
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int get_decimal_places(int &decimal_places, const bool is_factor = false) {
+        int get_decimal_places(int &decimal_places, const bool &is_factor = false) {
             if(decimal_places_ != 0) {
                 decimal_places = decimal_places_;
                 return OK;
@@ -1064,7 +1089,7 @@ namespace xquotes_history {
 
         /** \brief Проверка выходного дня
          */
-        static bool check_day_off(const key_t key) {
+        static bool check_day_off(const key_t &key) {
             return xtime::is_day_off_for_day(key);
         }
 
@@ -1077,9 +1102,9 @@ namespace xquotes_history {
          * \param option настройки хранилища котировок (использовать сжатие  - USE_COMPRESSION, иначе DO_NOT_USE_COMPRESSION)
          */
         MultipleQuotesHistory(
-                std::vector<std::string> paths,
-                const int price_type = PRICE_OHLC,
-                const int option = USE_COMPRESSION) {
+                const std::vector<std::string> &paths,
+                const int &price_type = PRICE_OHLC,
+                const int &option = USE_COMPRESSION) {
             for(size_t i = 0; i < paths.size(); ++i) {
                 symbols.push_back(new QuotesHistory<CANDLE_TYPE>(paths[i], price_type, option));
             }
@@ -1097,7 +1122,7 @@ namespace xquotes_history {
          * \param symbol_ind Индекс символа
          * \return Вернет указатель на класс исторических данны или NULL в случае ошибки
          */
-        QuotesHistory<CANDLE_TYPE>* get_quotes_history(const size_t symbol_ind) {
+        QuotesHistory<CANDLE_TYPE>* get_quotes_history(const size_t &symbol_ind) {
             if(symbol_ind < symbols.size()) return symbols[symbol_ind];
             return NULL;
         }
@@ -1112,7 +1137,7 @@ namespace xquotes_history {
          * \param symbol_ind Номер символа
          * \return Вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int set_indent(const int indent_day_dn, const int indent_day_up, const int symbol_ind) {
+        int set_indent(const int &indent_day_dn, const int &indent_day_up, const int &symbol_ind) {
             if(symbol_ind >= (int)symbols.size()) return INVALID_PARAMETER;
             symbols[symbol_ind]->set_indent(indent_day_dn, indent_day_up);
             return OK;
@@ -1126,7 +1151,7 @@ namespace xquotes_history {
          * \param indent_day_dn Отступ от даты загрузки в днях к началу исторических данных
          * \param indent_day_up Отступ от даты загрузки в днях к концу исторических данных
          */
-        void set_indent(const int indent_day_dn, const int indent_day_up) {
+        void set_indent(const int &indent_day_dn, const int &indent_day_up) {
             for(size_t i = 0; i < symbols.size(); ++i) {
                 symbols[i]->set_indent(indent_day_dn, indent_day_up);
             }
@@ -1162,7 +1187,7 @@ namespace xquotes_history {
         inline int get_min_max_day_timestamp(
                 xtime::timestamp_t &min_timestamp,
                 xtime::timestamp_t &max_timestamp,
-                const int symbol_ind) {
+                const int &symbol_ind) {
             if(symbol_ind >= (int)symbols.size()) return INVALID_PARAMETER;
             return symbols[symbol_ind]->get_min_max_start_day_timestamp(min_timestamp, max_timestamp);
         }
@@ -1178,9 +1203,9 @@ namespace xquotes_history {
          */
         int get_candle(
                 CANDLE_TYPE &candle,
-                const xtime::timestamp_t timestamp,
-                const int symbol_ind,
-                const int optimization = OPTIMIZATION_SEQUENTIAL_READING) {
+                const xtime::timestamp_t &timestamp,
+                const int &symbol_ind,
+                const int &optimization = OPTIMIZATION_SEQUENTIAL_READING) {
             if(symbol_ind >= (int)symbols.size()) return INVALID_PARAMETER;
             return symbols[symbol_ind]->get_candle(candle, timestamp, optimization);
         }
@@ -1197,10 +1222,10 @@ namespace xquotes_history {
          */
         int get_price(
                 double& price,
-                const xtime::timestamp_t timestamp,
-                const int symbol_ind,
-                const int price_type = PRICE_CLOSE,
-                const int optimization = OPTIMIZATION_SEQUENTIAL_READING) {
+                const xtime::timestamp_t &timestamp,
+                const int &symbol_ind,
+                const int &price_type = PRICE_CLOSE,
+                const int &optimization = OPTIMIZATION_SEQUENTIAL_READING) {
             if(symbol_ind >= (int)symbols.size()) return INVALID_PARAMETER;
             return symbols[symbol_ind]->get_price(price, timestamp, price_type, optimization);
         }
@@ -1215,8 +1240,8 @@ namespace xquotes_history {
          */
         int get_symbols_candle(
                 std::vector<CANDLE_TYPE> &symbols_candle,
-                const xtime::timestamp_t timestamp,
-                const int optimization = OPTIMIZATION_SEQUENTIAL_READING) {
+                const xtime::timestamp_t &timestamp,
+                const int &optimization = OPTIMIZATION_SEQUENTIAL_READING) {
             symbols_candle.resize(symbols.size());
             int err = OK;
             for(size_t i = 0; i < symbols.size(); ++i) {
@@ -1239,9 +1264,9 @@ namespace xquotes_history {
          */
         int get_symbols_price(
                 std::vector<double> &symbols_price,
-                const xtime::timestamp_t timestamp,
-                const int price_type = PRICE_CLOSE,
-                const int optimization = OPTIMIZATION_SEQUENTIAL_READING) {
+                const xtime::timestamp_t &timestamp,
+                const int &price_type = PRICE_CLOSE,
+                const int &optimization = OPTIMIZATION_SEQUENTIAL_READING) {
             symbols_price.resize(symbols.size());
             int err = OK;
             for(size_t i = 0; i < symbols.size(); ++i) {
@@ -1267,12 +1292,12 @@ namespace xquotes_history {
          */
         int check_binary_option(
                 int& state,
-                const int contract_type,
-                const int duration_sec,
-                const xtime::timestamp_t timestamp,
-                const int symbol_ind,
-                const int price_type = PRICE_CLOSE,
-                const int optimization = OPTIMIZATION_SEQUENTIAL_READING) {
+                const int &contract_type,
+                const int &duration_sec,
+                const xtime::timestamp_t &timestamp,
+                const int &symbol_ind,
+                const int &price_type = PRICE_CLOSE,
+                const int &optimization = OPTIMIZATION_SEQUENTIAL_READING) {
             if(symbol_ind >= (int)symbols.size()) return INVALID_PARAMETER;
             return symbols[symbol_ind]->check_binary_option(state, contract_type, duration_sec, timestamp, price_type, optimization);
         }
@@ -1281,7 +1306,7 @@ namespace xquotes_history {
          * \param symbol_ind индекс символа
          * \return имя символа, если символ существует, иначе пустая строка
          */
-        inline std::string get_name(const int symbol_ind) {
+        inline std::string get_name(const int &symbol_ind) {
             if(symbol_ind >= (int)symbols.size()) return "";
             return symbols[symbol_ind]->get_name();
         }
@@ -1290,7 +1315,7 @@ namespace xquotes_history {
          * \param symbol_ind индекс символа
          * \return директория файла символа, если символ существует, иначе пустая строка
          */
-        inline std::string get_path(const int symbol_ind) {
+        inline std::string get_path(const int &symbol_ind) {
             if(symbol_ind >= (int)symbols.size()) return "";
             return symbols[symbol_ind]->get_path();
         }
@@ -1307,11 +1332,11 @@ namespace xquotes_history {
          */
         int get_day_timestamp_list(
                 std::vector<xtime::timestamp_t>& list_timestamp,
-                const xtime::timestamp_t start_timestamp,
+                const xtime::timestamp_t &start_timestamp,
                 const std::vector<bool> &is_symbol,
-                const int num_days,
-                bool is_day_off_filter = true,
-                bool is_go_back_in_time = true) {
+                const int &num_days,
+                const bool &is_day_off_filter = true,
+                const bool &is_go_back_in_time = true) {
             if(symbols.size() == 0) return DATA_NOT_AVAILABLE;
             if(is_symbol.size() != symbols.size()) return INVALID_PARAMETER;
             std::vector<key_t> list_subfile;
@@ -1349,8 +1374,8 @@ namespace xquotes_history {
          */
         int get_decimal_places(
                 int &decimal_places,
-                const int symbol_ind,
-                const bool is_factor = false) {
+                const int &symbol_ind,
+                const bool &is_factor = false) {
             if(symbol_ind >= (int)symbols.size()) return INVALID_PARAMETER;
             return symbols[symbol_ind]->get_decimal_places(decimal_places, is_factor);
             return OK;
@@ -1369,17 +1394,17 @@ namespace xquotes_history {
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         int trade(
-                const xtime::timestamp_t start_timestamp,
-                const int step_timestamp,
-                const int num_days,
+                const xtime::timestamp_t &start_timestamp,
+                const int &step_timestamp,
+                const int &num_days,
                 const std::vector<bool> &is_symbol,
                 std::function<void(
                     const CANDLE_TYPE &candle,
                     const int day,
                     const int symbol_ind,
                     const int err)> f,
-                const bool is_day_off_filter = true,
-                const bool is_go_back_in_time = true) {
+                const bool &is_day_off_filter = true,
+                const bool &is_go_back_in_time = true) {
             if(is_symbol.size() != symbols.size()) return INVALID_PARAMETER;
             std::vector<xtime::timestamp_t> list_timestamp;
             int err = get_day_timestamp_list(
@@ -1420,9 +1445,9 @@ namespace xquotes_history {
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         int trade_multiple_threads(
-                const xtime::timestamp_t start_timestamp,
-                const int step_timestamp,
-                const int num_days,
+                const xtime::timestamp_t &start_timestamp,
+                const int &step_timestamp,
+                const int &num_days,
                 const std::vector<bool> &is_symbol,
                 std::function<void(
                     const CANDLE_TYPE &candle,
@@ -1430,8 +1455,8 @@ namespace xquotes_history {
                     const int symbol_ind,
                     const int thread_ind,
                     const int err)> f,
-                const bool is_day_off_filter = true,
-                const bool is_go_back_in_time = true) {
+                const bool &is_day_off_filter = true,
+                const bool &is_go_back_in_time = true) {
             if(is_symbol.size() != symbols.size()) return INVALID_PARAMETER;
             std::vector<xtime::timestamp_t> list_timestamp;
             int err = get_day_timestamp_list(

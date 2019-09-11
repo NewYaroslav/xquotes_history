@@ -51,7 +51,7 @@ namespace xquotes_common {
      * \param price цена
      * \return цена, представленная в price_t
      */
-    inline price_t convert_to_uint(double price) {
+    inline price_t convert_to_uint(const double &price) {
         return (price_t)((price * PRICE_MULTIPLER) + 0.5);
     }
 
@@ -59,7 +59,7 @@ namespace xquotes_common {
      * \param price цена
      * \return цена, представленная в double
      */
-    inline double convert_to_double(price_t price) {
+    inline double convert_to_double(const price_t &price) {
         return (double)price / PRICE_MULTIPLER;
     }
 
@@ -75,7 +75,12 @@ namespace xquotes_common {
         xtime::timestamp_t timestamp = 0;
         Candle() {};
 
-        Candle(double open, double high, double low, double close, xtime::timestamp_t timestamp) {
+        Candle(
+                const double &open,
+                const double &high,
+                const double &low,
+                const double &close,
+                const xtime::timestamp_t &timestamp) {
             Candle::open = open;
             Candle::high = high;
             Candle::low = low;
@@ -83,7 +88,13 @@ namespace xquotes_common {
             Candle::timestamp = timestamp;
         }
 
-        Candle(double open, double high, double low, double close, double volume, xtime::timestamp_t timestamp) {
+        Candle(
+                const double &open,
+                const double &high,
+                const double &low,
+                const double &close,
+                const double &volume,
+                const xtime::timestamp_t &timestamp) {
             Candle::open = open;
             Candle::high = high;
             Candle::low = low;
@@ -166,7 +177,7 @@ namespace xquotes_common {
      * \param factor Множитель точности, указывать число кратное 10 (10,100,1000 и т.д.)
      * \return Вернет true если цены равны
      */
-    inline bool compare_price(const double a, const double b, const int factor) {
+    inline bool compare_price(const double &a, const double &b, const int &factor) {
         const double MAX_DIFF = 1.0d/ (const double)(factor * (const int)10);
         if(std::abs(a - b) < MAX_DIFF) return true;
         return false;
@@ -178,7 +189,7 @@ namespace xquotes_common {
      * \param is_factor Если true то функция принимает множитель
      * \return Вернет дробную часть
      */
-    inline int get_fractional(const double price, const int precision, const bool is_factor = false) {
+    inline int get_fractional(const double &price, const int &precision, const bool &is_factor = false) {
         if(is_factor) return (int)((price - std::floor(price)) * precision + 0.5);
         else return (int)((price - std::floor(price)) * std::pow(10, precision) + 0.5);
     }
@@ -189,7 +200,7 @@ namespace xquotes_common {
      * \param is_factor Если true то функция принимает множитель
      * \return Цена после огрубления
      */
-    inline double coarsening_price(const double price, const int precision, const bool is_factor = false) {
+    inline double coarsening_price(const double &price, const int &precision, const bool &is_factor = false) {
         if(is_factor) {
             const int temp = price * (double)precision + 0.5;
             return (double) temp / (double) precision;
@@ -206,7 +217,7 @@ namespace xquotes_common {
      * \return Количество знаков после запятой или множитель
      */
     template<class T>
-    int get_decimal_places(T& input, const bool is_factor = false) {
+    int get_decimal_places(T& input, const bool &is_factor = false) {
         int factor = 0, num = 1;
         for(int n = 10; n < 1000000; n *= 10, num++) {
             bool is_found = true;
