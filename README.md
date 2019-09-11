@@ -11,9 +11,11 @@
 Библиотека имеет два класса для считывания qhs* файлов (для доступа к одному файлу или для одновременного использования нескольких файлов)
 При этом чтобы получить интересующую вас цену достаточно указать метку времени, номер валютной пары и вызвать метод get_candle.
 * Сжатые qhs* данные можно конвертировать обратно в CSV формат или слить вместе (слияние пока не поддерживается)
+* Для работы с qhs* и cvs файлами есть консольная программа
 
 Пример сжатия данных, котировки от Финам: [https://github.com/NewYaroslav/finam_history_quotes](https://github.com/NewYaroslav/finam_history_quotes)
 Котировки от Binary: [https://github.com/NewYaroslav/binary.com_history_quotes](https://github.com/NewYaroslav/binary.com_history_quotes)
+
 ## Особенности
 
 * Header-only бибиотеку легко подключить в проект
@@ -129,6 +131,7 @@ int err_trade = iMultipleQuotesHistory.trade(
 * *Библиотека banana-filesystem-cpp (для работы с файлами)* - [https://github.com/NewYaroslav/banana-filesystem-cpp](https://github.com/NewYaroslav/banana-filesystem-cpp)
 
 ## Структура хранилища котировок
+
 ![storage_structure](doc/storage_structure_600x415.png)
 * Библиотека разбивает котировки по дням. Каждый торговый день записывается в отдельный подфайл
 * Каждый подфайл одного дня содержит фиксированное количество минут. В одном дне *1440* минут
@@ -148,4 +151,5 @@ int err_trade = iMultipleQuotesHistory.trade(
 Класс *Storage* можно использовать не только для хранения котирвок, но также для хранения любых других данных, например для храннеия промежуточных результатов тестирования торговой стратегии или результата оптимизации.
 
 ## Полезные ссылки
+
 * Дракон-схемы - [https://drakonhub.com/ru](https://drakonhub.com/ru)
