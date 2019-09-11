@@ -35,6 +35,9 @@ int qhs_date(const int argc, char *argv[]);
 int qhs_date(const int argc, char *argv[]);
 // обучение zstd
 int zstd_train(const int argc, char *argv[]);
+// слияние
+int merge_date(const int argc, char *argv[]);
+void parse(std::string value, std::vector<std::string> &elemet_list);
 
 int main(int argc, char *argv[]) {
     int cmd = 0;
@@ -55,6 +58,9 @@ int main(int argc, char *argv[]) {
     } else
     if(cmd == XQHTOOLS_ZSTD_TRAIN) {
         return zstd_train(argc, argv);
+    } else
+    if(cmd == XQHTOOLS_QHS_MERGE) {
+        return merge_date(argc, argv);
     }
     return 0;
 }
@@ -71,6 +77,8 @@ int get_cmd(int &cmd, const int argc, char *argv[]) {
     bool is_raw = false;
     bool is_storage = false;
     bool is_raw_storage = false;
+    bool is_paths_raw_storages = false;
+    bool is_path_out_raw_storage = false;
     for(int i = 1; i < argc; ++i) {
         std::string value = std::string(argv[i]);
         if(value == "train") is_train = true;
@@ -92,6 +100,12 @@ int get_cmd(int &cmd, const int argc, char *argv[]) {
         if(value == "path_raw_storage") is_raw_storage = true;
         else
         if(value == "path_raw") is_raw = true;
+        else
+        if(value == "path_raw") is_raw = true;
+        else
+        if(value == "paths_raw_storages") is_paths_raw_storages = true;
+        else
+        if(value == "path_out_raw_storage") is_path_out_raw_storage = true;
         else
         if(value == "version") {
             std::cout << "program version " << std::string(ZQHTOOLS_VERSION) << std::endl;
@@ -122,6 +136,9 @@ int get_cmd(int &cmd, const int argc, char *argv[]) {
         cmd = XQHTOOLS_QHS_DATE;
     } else
     if(is_merge && is_storage && !is_hex && !is_csv) {
+        cmd = XQHTOOLS_QHS_MERGE;
+    } else
+    if(is_merge && is_paths_raw_storages && is_path_out_raw_storage) {
         cmd = XQHTOOLS_QHS_MERGE;
     } else
     if(is_convert_csv && is_storage && is_csv && !is_hex) {
@@ -788,4 +805,70 @@ int zstd_train(const int argc, char *argv[]) {
         }
     }
     return 0;
+}
+
+int merge_date(const int argc, char *argv[]) {
+    std::vector<std::string> paths_raw_storages;
+    std::string path_out_raw_storage = "";
+    for(int i = 1; i < argc; ++i) {
+        std::string value = std::string(argv[i]);
+        if((value == "paths_raw_storages") && (i + 1) < argc) {
+            std::string path_raw = std::string(argv[i + 1]);
+            parse(path_raw, paths_raw_storages);
+        } else
+        if((value == "path_out_raw_storage") && (i + 1) < argc) {
+            path_out_raw_storage = std::string(argv[i + 1]);
+        }
+    }
+
+    if(path_out_raw_storage == "" || paths_raw_storages.size() <= 1) {
+        std::cout << "error, not all data specified!" << std::endl;
+        return -1;
+    }
+
+    std::vector<xquotes_storage::Storage *> list_storage;
+    for(size_t i = 0; i < paths_raw_storages.size(); ++i) {
+        list_storage.push_back(new xquotes_storage::Storage(paths_raw_storages[i]));
+    }
+    xquotes_storage::Storage OutStorage(path_out_raw_storage);
+    std::cout << "start merge" << std::endl;
+    int num_subfiles = 0;
+    for(size_t i = 0; i < paths_raw_storages.size(); ++i) {
+        int storage_subfiles = list_storage[i]->get_num_subfiles();
+        std::cout << "storage " << paths_raw_storages[i] << " subfiles: " << storage_subfiles << std::endl;
+        for(int s = 0; s < storage_subfiles; ++s) {
+            xquotes_storage::key_t key = list_storage[i]->get_key_subfiles(s);
+            char *buffer = NULL;
+            unsigned long buffer_size = 0;
+            int err = list_storage[i]->read_subfile(key, buffer, buffer_size);
+            if(err != xquotes_storage::OK) {
+                std::cout << "storage error, code " << err << std::endl;
+                delete [] buffer;
+                continue;
+            }
+
+            xquotes_storage::key_t new_key = num_subfiles;
+            OutStorage.write_subfile(new_key, buffer, buffer_size);
+            delete [] buffer;
+            std::cout << "subfiles: " << num_subfiles << "\r";
+            num_subfiles++;
+        }
+    }
+    std::cout << std::endl;
+    return 0;
+}
+
+void parse(std::string value, std::vector<std::string> &elemet_list) {
+    if(value.back() != ',')
+        value += ",";
+    std::size_t start_pos = 0;
+    while(true) {
+        std::size_t found_beg = value.find_first_of(",", start_pos);
+        if(found_beg != std::string::npos) {
+            std::size_t len = found_beg - start_pos;
+            if(len > 0)
+                elemet_list.push_back(value.substr(start_pos, len));
+            start_pos = found_beg + 1;
+        } else break;
+    }
 }

@@ -1118,6 +1118,14 @@ namespace xquotes_history {
             is_init = true;
         }
 
+        ~MultipleQuotesHistory() {
+            for(size_t i = 0; i < symbols.size(); ++i) {
+                delete symbols[i];
+                symbols[i] = NULL;
+            }
+            symbols.clear();
+        }
+
         /** \brief Получить указатель на класс исторических данных указанного символа
          * \param symbol_ind Индекс символа
          * \return Вернет указатель на класс исторических данны или NULL в случае ошибки
