@@ -730,7 +730,7 @@ namespace xquotes_storage {
          */
         void set_file_note(note_t new_file_note) {file_note = new_file_note;};
 
-        ~Storage() {
+        virtual ~Storage() {
             close();
             if(is_mem_dict_file) delete [] dictionary_file_buffer;
         }
