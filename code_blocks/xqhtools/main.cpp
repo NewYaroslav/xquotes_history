@@ -8,8 +8,6 @@
 #include <random>
 #include <ctime>
 #include <stdio.h>
-#include <random>
-#include <ctime>
 
 #define ZQHTOOLS_VERSION "1.1"
 
@@ -671,15 +669,19 @@ int qhs_date(const int argc, char *argv[]) {
 int zstd_train(const int argc, char *argv[]) {
     std::string path_raw_storage = "";
     std::string path_raw = "";
-    std::string name = "";
+    std::string path_dictionary = "";
+    std::string dictionary_name = "";
     bool is_rnd = false;
     bool is_cpp = false;
     int fill_factor = 100;
     size_t dictionary_capacity = 102400;
     for(int i = 1; i < argc; ++i) {
         std::string value = std::string(argv[i]);
-        if((value == "dictionary_file") && (i + 1) < argc) {
-            name = std::string(argv[i + 1]);
+        if((value == "path_dictionary") && (i + 1) < argc) {
+            path_dictionary = std::string(argv[i + 1]);
+        } else
+        if((value == "dictionary_name") && (i + 1) < argc) {
+            dictionary_name = std::string(argv[i + 1]);
         } else
         if((value == "path_raw_storage") && (i + 1) < argc) {
             path_raw_storage = std::string(argv[i + 1]);
@@ -699,26 +701,39 @@ int zstd_train(const int argc, char *argv[]) {
         else
         if(value == "-cpp") is_cpp = true;
     }
+
+    if(path_dictionary == "" || (dictionary_name == "" && is_cpp)) {
+        std::cout << "error! no file name or file path specified!" << std::endl;
+        return -1;
+    }
+
     if(path_raw_storage != "") {
         xquotes_storage::Storage iStorage(path_raw_storage);
+
+        // получим количество подфайлов
         int num_subfiles = iStorage.get_num_subfiles();
         if(num_subfiles == 0) {
             std::cout << "error! no subfiles!" << std::endl;
             return -1;
         }
-        int user_num_subfiles = num_subfiles;
+
+        // сформируем список подфайлов
+        int user_num_subfiles = num_subfiles; // новое количество подфайлов для обучения
         if(fill_factor < 100) {
-            user_num_subfiles *= fill_factor;
-            user_num_subfiles /= 100;
+            user_num_subfiles = user_num_subfiles * fill_factor / 100;
         }
         if(user_num_subfiles == 0) {
             std::cout << "error! no subfiles!" << std::endl;
             return -1;
         }
-        std::vector<int> subfiles_list;
+
+        std::vector<int> subfiles_list; // список подфайлов для обучения
+
+        // настроим генератор случайных чисел
         std::mt19937 gen;
         gen.seed(time(0));
-        std::uniform_int_distribution<> denominator(0, user_num_subfiles);
+        std::uniform_int_distribution<> denominator(0, num_subfiles);
+
         for(int i = 0; i < user_num_subfiles; ++i) {
             if(is_rnd) {
                 subfiles_list.push_back(iStorage.get_key_subfiles(denominator(gen)));
@@ -728,7 +743,45 @@ int zstd_train(const int argc, char *argv[]) {
         }
 
         bool is_file = is_cpp ? false : true;
-        int err = xquotes_zstd::train_zstd(iStorage, subfiles_list, name, dictionary_capacity, is_file);
+        int err = xquotes_zstd::train_zstd(iStorage, subfiles_list, path_dictionary, dictionary_name, dictionary_capacity, is_file);
+        if(err != xquotes_zstd::OK) {
+            std::cout << "error!" << std::endl;
+            return -1;
+        }
+    } else
+    if(path_raw != "") {
+        std::vector<std::string> files_list;
+        bf::get_list_files(path_raw, files_list, true);
+        if(files_list.size() == 0) {
+            std::cout << "error! no files" << std::endl;
+            return -1;
+        }
+
+        // найдем количество файлов для обучения
+        int user_num_files = files_list.size();
+        if(fill_factor < 100) {
+            user_num_files = user_num_files * fill_factor / 100;
+        }
+        if(user_num_files == 0) {
+            std::cout << "error! no files" << std::endl;
+            return -1;
+        }
+
+        std::mt19937 gen;
+        gen.seed(time(0));
+        std::uniform_int_distribution<> denominator(0, files_list.size());
+
+        std::vector<std::string> new_files_list;
+        for(int i = 0; i < user_num_files; ++i) {
+            if(is_rnd) {
+                new_files_list.push_back(files_list[denominator(gen)]);
+            } else {
+                new_files_list.push_back(files_list[i]);
+            }
+        }
+
+        bool is_file = is_cpp ? false : true;
+        int err = xquotes_zstd::train_zstd(files_list, path_dictionary, dictionary_name, dictionary_capacity, is_file);
         if(err != xquotes_zstd::OK) {
             std::cout << "error!" << std::endl;
             return -1;

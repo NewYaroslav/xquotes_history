@@ -51,50 +51,75 @@ namespace xquotes_zstd {
         return s;
     }
 
+    std::string str_tolower(std::string s) {
+        std::transform(s.begin(), s.end(), s.begin(),
+            [](unsigned char c){ return std::tolower(c); });
+        return s;
+    }
+
     /** \brief Тренируйте словарь из массива образцов
-    * \param path путь к файлам
-    * \param file_name имя файл словаря, который будет сохранен по окончанию обучения
-    * \param dict_buffer_capacit размер словаря
-    * \return венет 0 в случае успеха
-    */
+     * \param storage Хранилище данных
+     * \param subfiles_list Список ключей подфайлов
+     * \param path путь к файлу словаря
+     * \param name имя словаря
+     * \param dict_buffer_capacit размер словаря
+     * \param is_file Флаг файла словаря. Если установлен, то словарь будет сохранен как бинарный файл
+     * \return венет 0 в случае успеха
+     */
     int train_zstd(
             xquotes_storage::Storage &storage,
             const std::vector<int> &subfiles_list,
+            const std::string &path,
             const std::string &name,
             const size_t &dict_buffer_capacit = 102400,
             const bool is_file = true) {
-        size_t all_files_size = 0;
-        void *samples_buffer = NULL;
 
-        size_t num_files = 0;
+        // буферы для подготовки образцов обучения
+        size_t all_subfiles_size = 0;
+        void *samples_buffer = NULL;
+        size_t num_subfiles = 0;
         size_t *samples_size = NULL;
+
+        // выясним, сколько нам нужно выделить памяти под образцы
+        unsigned long subfiles_size = 0;
+        unsigned long subfiles_counter = 0;
         for(size_t i = 0; i < subfiles_list.size(); ++i) {
-            unsigned long file_size = 0;
-            int err_stor = storage.get_subfile_size(subfiles_list[i], file_size);
-            if(err_stor == OK && file_size > 0) {
-                num_files++;
-                size_t start_pos = all_files_size;
-                all_files_size += file_size;
-                std::cout << "buffer size: " << all_files_size << std::endl;
-                samples_buffer = realloc(samples_buffer, all_files_size);
-                samples_size = (size_t*)realloc((void*)samples_size, num_files * sizeof(size_t));
-                samples_size[num_files - 1] = file_size;
-                //int err = bf::load_file(subfiles_list[i], samples_buffer, all_files_size, start_pos);
+            unsigned long subfile_size = 0;
+            int err_stor = storage.get_subfile_size(subfiles_list[i], subfile_size);
+            if(err_stor == OK) {
+                subfiles_size += subfile_size;
+                subfiles_counter++;
+            }
+        }
+
+        // выделим память под образцы
+        samples_buffer = malloc(subfiles_size);
+        samples_size = (size_t*)malloc(subfiles_counter * sizeof(size_t));
+
+        // заполним буферы образцов
+        for(size_t i = 0; i < subfiles_list.size(); ++i) {
+            unsigned long subfile_size = 0;
+            int err_stor = storage.get_subfile_size(subfiles_list[i], subfile_size);
+            if(err_stor == OK && subfile_size > 0) {
+                num_subfiles++;
+                size_t start_pos = all_subfiles_size;
+                all_subfiles_size += subfile_size;
+                samples_size[num_subfiles - 1] = subfile_size;
                 char *point_buffer = (char*)samples_buffer + start_pos;
-                int err_read = storage.read_subfile(subfiles_list[i], point_buffer, file_size);
+                int err_read = storage.read_subfile(subfiles_list[i], point_buffer, subfile_size);
 
                 if(err_read != OK) {
-                    std::cout << "load file: error, " << subfiles_list[i] << std::endl;
+                    std::cout << "read subfile error, subfile: " << subfiles_list[i] << " code: " << err_read << std::endl;
                     if(samples_buffer != NULL)
                         free(samples_buffer);
                     if(samples_size != NULL)
                         free(samples_size);
                     return NOT_OPEN_FILE;
                 } else {
-                    std::cout << "load file: " << subfiles_list[i] << " #" << num_files << "/" << subfiles_list.size() << std::endl;
+                    std::cout << "subfile: " << subfiles_list[i] << " #" << num_subfiles << "/" << subfiles_list.size() << "\r";
                 }
             } else {
-                std::cout << "buffer size: error, " << subfiles_list[i] << std::endl;
+                std::cout << "storage error, subfile: " << subfiles_list[i] << " code: " << err_stor << std::endl;
                 if(samples_buffer != NULL)
                     free(samples_buffer);
                 if(samples_size != NULL)
@@ -102,26 +127,31 @@ namespace xquotes_zstd {
                 return NOT_OPEN_FILE;
             }
         }
+        std::cout << std::endl;
 
         void *dict_buffer = NULL;
         dict_buffer = malloc(dict_buffer_capacit);
         memset(dict_buffer, 0, dict_buffer_capacit);
-        size_t file_size = ZDICT_trainFromBuffer(dict_buffer, dict_buffer_capacit, samples_buffer, samples_size, num_files);
+        size_t file_size = ZDICT_trainFromBuffer(dict_buffer, dict_buffer_capacit, samples_buffer, samples_size, num_subfiles);
 
         if(is_file) {
-            size_t err = bf::write_file(name, dict_buffer, file_size);
+            size_t err = bf::write_file(path, dict_buffer, file_size);
             return err > 0 ? OK : NOT_WRITE_FILE;
         } else {
+            std::string dictionary_name_upper = str_toupper(name);
+            std::string dictionary_name_lower = str_tolower(name);
+
             // сохраним как с++ файл
             unsigned char *dict_buffer_point = (unsigned char *)dict_buffer;
             std::string out;
-            out += "#ifndef XQUOTES_DICTIONARY_" + name + "_HPP_INCLUDED\n";
-            out += "#define XQUOTES_DICTIONARY_" + name + "_HPP_INCLUDED\n";
+            out += "#ifndef XQUOTES_DICTIONARY_" + dictionary_name_upper+ "_HPP_INCLUDED\n";
+            out += "#define XQUOTES_DICTIONARY_" + dictionary_name_upper + "_HPP_INCLUDED\n";
+            out += "\n";
             out += "namespace zstd_dictionary {\n";
-            out += "\tconst static unsigned char dictionary_" + name + "[" + std::to_string(file_size) + "] = {\n";
+            out += "\tconst static unsigned char " + dictionary_name_lower + "[" + std::to_string(file_size) + "] = {\n";
             out += "\t\t";
             for(size_t j = 0; j < file_size; ++j) {
-                if(j % 16 == 0) {
+                if(j > 0 && (j % 16) == 0) {
                     out += "\n\t\t";
                 }
                 out += convert_hex_to_string(dict_buffer_point[j]) + ",";
@@ -130,8 +160,113 @@ namespace xquotes_zstd {
                 }
             }
             out += "}\n";
-            out += "#endif // XQUOTES_DICTIONARY_" + name + "_HPP_INCLUDED\n";
-            std::string path_out = "dictionary_" + name + ".hpp";
+            out += "#endif // XQUOTES_DICTIONARY_" + dictionary_name_upper + "_HPP_INCLUDED\n";
+            std::string path_out = bf::set_file_extension(path, ".hpp");
+            size_t err = bf::write_file(path_out, (void*)out.c_str(), out.size());
+            return err > 0 ? OK : NOT_WRITE_FILE;
+        }
+    }
+
+    /** \brief Тренируйте словарь из массива образцов
+     * \param files_list Список файлов для обучения
+     * \param path путь к файлу словаря
+     * \param name имя словаря
+     * \param dict_buffer_capacit размер словаря
+     * \param is_file Флаг файла словаря. Если установлен, то словарь будет сохранен как бинарный файл
+     * \return венет 0 в случае успеха
+     */
+    int train_zstd(
+            const std::vector<std::string> &files_list,
+            const std::string &path,
+            const std::string &name,
+            const size_t &dict_buffer_capacit = 102400,
+            const bool is_file = true) {
+
+        // буферы для подготовки образцов обучения
+        size_t all_files_size = 0;
+        void *samples_buffer = NULL;
+        size_t num_files = 0;
+        size_t *samples_size = NULL;
+
+        // выясним, сколько нам нужно выделить памяти под образцы
+        unsigned long files_size = 0;
+        unsigned long files_counter = 0;
+        for(size_t i = 0; i < files_list.size(); ++i) {
+            unsigned long file_size = bf::get_file_size(files_list[i]);
+            if(file_size > 0) {
+                files_size += file_size;
+                files_counter++;
+            }
+        }
+
+        // выделим память под образцы
+        samples_buffer = malloc(files_size);
+        samples_size = (size_t*)malloc(files_counter * sizeof(size_t));
+
+        // заполним буферы образцов
+        for(size_t i = 0; i < files_list.size(); ++i) {
+            unsigned long file_size = bf::get_file_size(files_list[i]);
+            if(file_size > 0) {
+                num_files++;
+                size_t start_pos = all_files_size;
+                all_files_size += file_size;
+                samples_size[num_files - 1] = file_size;
+
+                unsigned long err = bf::load_file(files_list[i], samples_buffer, all_files_size, start_pos);
+                if(err != file_size) {
+                    std::cout << "read file error, file: " << files_list[i] << " size: " << err << std::endl;
+                    if(samples_buffer != NULL)
+                        free(samples_buffer);
+                    if(samples_size != NULL)
+                        free(samples_size);
+                    return NOT_OPEN_FILE;
+                } else {
+                    std::cout << "file: " << files_list[i] << " #" << num_files << "/" << files_list.size() << "\r";
+                }
+            } else {
+                std::cout << "buffer size: get file size error, file: " << files_list[i] << " size: " << file_size << std::endl;
+                if(samples_buffer != NULL)
+                    free(samples_buffer);
+                if(samples_size != NULL)
+                    free(samples_size);
+                return NOT_OPEN_FILE;
+            }
+        }
+        std::cout << std::endl;
+
+        void *dict_buffer = NULL;
+        dict_buffer = malloc(dict_buffer_capacit);
+        memset(dict_buffer, 0, dict_buffer_capacit);
+        size_t file_size = ZDICT_trainFromBuffer(dict_buffer, dict_buffer_capacit, samples_buffer, samples_size, num_files);
+
+        if(is_file) {
+            size_t err = bf::write_file(path, dict_buffer, file_size);
+            return err > 0 ? OK : NOT_WRITE_FILE;
+        } else {
+            std::string dictionary_name_upper = str_toupper(name);
+            std::string dictionary_name_lower = str_tolower(name);
+
+            // сохраним как с++ файл
+            unsigned char *dict_buffer_point = (unsigned char *)dict_buffer;
+            std::string out;
+            out += "#ifndef XQUOTES_DICTIONARY_" + dictionary_name_upper+ "_HPP_INCLUDED\n";
+            out += "#define XQUOTES_DICTIONARY_" + dictionary_name_upper + "_HPP_INCLUDED\n";
+            out += "\n";
+            out += "namespace zstd_dictionary {\n";
+            out += "\tconst static unsigned char " + dictionary_name_lower + "[" + std::to_string(file_size) + "] = {\n";
+            out += "\t\t";
+            for(size_t j = 0; j < file_size; ++j) {
+                if(j > 0 && (j % 16) == 0) {
+                    out += "\n\t\t";
+                }
+                out += convert_hex_to_string(dict_buffer_point[j]) + ",";
+                if(j == file_size - 1) {
+                    out += "\n\t};\n";
+                }
+            }
+            out += "}\n";
+            out += "#endif // XQUOTES_DICTIONARY_" + dictionary_name_upper + "_HPP_INCLUDED\n";
+            std::string path_out = bf::set_file_extension(path, ".hpp");
             size_t err = bf::write_file(path_out, (void*)out.c_str(), out.size());
             return err > 0 ? OK : NOT_WRITE_FILE;
         }
