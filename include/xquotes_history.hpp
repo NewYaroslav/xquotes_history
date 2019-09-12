@@ -1082,7 +1082,7 @@ namespace xquotes_history {
     class MultipleQuotesHistory {
     private:
 
-        std::vector<QuotesHistory<CANDLE_TYPE>*> symbols; /**< Вектор с историческими данными цен */
+        std::vector<std::shared_ptr<QuotesHistory<CANDLE_TYPE>>> symbols; /**< Вектор с историческими данными цен */
         xtime::timestamp_t min_timestamp = 0;                                              /**< Временная метка начала исторических данных по всем валютным парам */
         xtime::timestamp_t max_timestamp = std::numeric_limits<xtime::timestamp_t>::max(); /**< Временная метка конца исторических данных по всем валютным парам */
         bool is_init = false;
@@ -1106,7 +1106,7 @@ namespace xquotes_history {
                 const int &price_type = PRICE_OHLC,
                 const int &option = USE_COMPRESSION) {
             for(size_t i = 0; i < paths.size(); ++i) {
-                symbols.push_back(new QuotesHistory<CANDLE_TYPE>(paths[i], price_type, option));
+                symbols.push_back(std::make_shared<QuotesHistory<CANDLE_TYPE>>(paths[i], price_type, option));
             }
             for(size_t i = 0; i < paths.size(); ++i) {
                 xtime::timestamp_t symbol_min_timestamp = 0, symbol_max_timestamp = 0;
@@ -1119,11 +1119,11 @@ namespace xquotes_history {
         }
 
         ~MultipleQuotesHistory() {
-            for(size_t i = 0; i < symbols.size(); ++i) {
-                delete symbols[i];
-                symbols[i] = NULL;
-            }
-            symbols.clear();
+            //for(size_t i = 0; i < symbols.size(); ++i) {
+            //    delete symbols[i];
+            //    symbols[i] = NULL;
+            //}
+            //symbols.clear();
         }
 
         /** \brief Получить указатель на класс исторических данных указанного символа
@@ -1131,7 +1131,7 @@ namespace xquotes_history {
          * \return Вернет указатель на класс исторических данны или NULL в случае ошибки
          */
         QuotesHistory<CANDLE_TYPE>* get_quotes_history(const size_t &symbol_ind) {
-            if(symbol_ind < symbols.size()) return symbols[symbol_ind];
+            if(symbol_ind < symbols.size()) return symbols[symbol_ind].get();
             return NULL;
         }
 
