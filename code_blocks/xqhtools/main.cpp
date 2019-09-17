@@ -9,7 +9,7 @@
 #include <ctime>
 #include <stdio.h>
 
-#define ZQHTOOLS_VERSION "1.1"
+#define ZQHTOOLS_VERSION "1.2"
 
 enum {
     XQHTOOLS_CSV_TO_HEX = 0,
