@@ -102,6 +102,34 @@ namespace xquotes_history {
         std::string path_;
         std::string name_;
 
+        std::unique_ptr<char[]> write_buffer;   /**< Буфер для записи */
+        size_t write_buffer_size = 0;           /**< Размер буфера для записи */
+
+        /** \brief Изменить размер буффера для записи
+         * Данная функция работает только на увеличение размера буффера
+         * \param new_size новый размер
+         */
+        void increase_write_buffer_size(const size_t &new_size) {
+            if(new_size > write_buffer_size) {
+                write_buffer = std::unique_ptr<char[]>(new char[new_size]);
+                write_buffer_size = new_size;
+            }
+        }
+
+        std::unique_ptr<char[]> read_candles_buffer;    /**< Буфер для чтения свечей */
+        size_t read_candles_buffer_size = 0;            /**< Размер буфера для чтения свечей */
+
+        /** \brief Изменить размер буффера для чтения свечей
+         * Данная функция работает только на увеличение размера буффера
+         * \param new_size новый размер
+         */
+        void increase_read_candles_buffer_size(const size_t &new_size) {
+            if(new_size > write_buffer_size) {
+                read_candles_buffer = std::unique_ptr<char[]>(new char[new_size]);
+                read_candles_buffer_size = new_size;
+            }
+        }
+
         std::vector<candles_array_t> candles_array_days; /**< Котировки в виде минутных свечей, отсортирован по дням */
 
         /** \brief Получить метку времени начала дня массива цен по индексу элемента
@@ -291,17 +319,18 @@ namespace xquotes_history {
          */
         int read_candles(std::array<CANDLE_TYPE, MINUTES_IN_DAY>& candles, const key_t &key, const xtime::timestamp_t &timestamp) {
             int err = 0;
-            char *buffer = NULL;
+            //char *buffer = NULL;
             unsigned long buffer_size = 0;
+            //increase_read_candles_buffer_size(buffer_size);
             fill_timestamp(candles, timestamp);
-            if(is_use_dictionary) err = read_compressed_subfile(key, buffer, buffer_size);
-            else err = read_subfile(key, buffer, buffer_size);
+            if(is_use_dictionary) err = read_compressed_subfile(key, read_candles_buffer, read_candles_buffer_size, buffer_size);
+            else err = read_subfile(key, read_candles_buffer, read_candles_buffer_size, buffer_size);
             if(err != OK) {
-                if(buffer != NULL) delete [] buffer;
+                //if(buffer != NULL) delete [] buffer;
                 return err;
             }
-            err = convert_buffer_to_candles(candles, buffer, buffer_size);
-            delete [] buffer;
+            err = convert_buffer_to_candles(candles, read_candles_buffer.get(), buffer_size);
+            //delete [] buffer;
             return err;
         }
 
@@ -624,12 +653,15 @@ namespace xquotes_history {
                 const xtime::timestamp_t &timestamp) {
             const size_t buffer_size = price_type == PRICE_OHLCV ? CANDLE_WITH_VOLUME_BUFFER_SIZE :
                 price_type == PRICE_OHLC ? CANDLE_WITHOUT_VOLUME_BUFFER_SIZE : ONLY_ONE_PRICE_BUFFER_SIZE;
-            char *buffer = new char[buffer_size];
+            //char *buffer = new char[buffer_size];
+            increase_write_buffer_size(buffer_size);
+            char *buffer = write_buffer.get();
             int err_convert = convert_candles_to_buffer(candles, buffer, buffer_size);
             int err_write = 0;
             if(is_use_dictionary) err_write = write_compressed_subfile(xtime::get_day(timestamp), buffer, buffer_size);
             else err_write = write_subfile(xtime::get_day(timestamp), buffer, buffer_size);
-            delete [] buffer;
+
+            //delete [] buffer;
             return err_convert != OK ? err_convert : err_write;
         }
 

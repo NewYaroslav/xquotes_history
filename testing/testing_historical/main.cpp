@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
         iQuotesHistory3.write_candles(candles, xtime::get_timestamp(i + 1,8,2019,0,0,0));
         iQuotesHistory4.write_candles(candles, xtime::get_timestamp(i + 1,8,2019,0,0,0));
         std::cout << "write " << xtime::get_timestamp(i + 1,8,2019,0,0,0) << std::endl;
-        system("pause");
+        //system("pause");
     }
     aver_t1 /= (double)NUM_SAMPLES;
     aver_t2 /= (double)NUM_SAMPLES;
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
     int offset_minute_day = 145;
     std::cout << "check test close price: " << array_candles[0][offset_minute_day].close << std::endl;
     xtime::timestamp_t min_timestamp = 0, max_timestamp = 0;
-    iQuotesHistory.get_min_max_start_day_timestamp(min_timestamp, max_timestamp);
+    iQuotesHistory.get_min_max_day_timestamp(min_timestamp, max_timestamp);
     std::cout << "min max timestamp: " << min_timestamp << " - " << max_timestamp << std::endl;
 
     /* Проверяем доступ к данным
@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
         xtime::get_timestamp(1,8,2019,0,0,0),
         xtime::get_timestamp(3,8,2019,0,0,0),
         xtime::SECONDS_IN_MINUTE,
-        [&](const xquotes_history::QuotesHistory<> &hist,
+        [&](
             const xquotes_history::Candle &candle,
             const int err){
             if(xtime::is_beg_hour(candle.timestamp))

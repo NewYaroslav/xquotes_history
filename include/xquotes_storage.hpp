@@ -37,6 +37,7 @@
 #include <algorithm>
 #include <random>
 #include <cstdio>
+#include <memory>
 
 #ifndef XQUOTES_NOT_USE_ZSTD
 #define XQUOTES_USE_ZSTD 1
@@ -61,6 +62,36 @@ namespace xquotes_storage {
         int dictionary_file_size = 0;
         bool is_mem_dict_file = false;                  /**< Флаг использования выделения памяти под словарь */
         note_t file_note = 0;                           /**< Заметка файла */
+
+
+        std::unique_ptr<char[]> compressed_file_buffer;   /**< Буфер для записи */
+        size_t compressed_file_buffer_size = 0;           /**< Размер буфера для записи */
+
+        /** \brief Изменить размер буффера для записи сжатого файла
+         * Данная функция работает только на увеличение размера буффера
+         * \param new_size новый размер
+         */
+        void increase_compressed_file_buffer_size(const size_t &new_size) {
+            if(new_size > compressed_file_buffer_size) {
+                compressed_file_buffer = std::unique_ptr<char[]>(new char[new_size]);
+                compressed_file_buffer_size = new_size;
+            }
+        }
+
+        std::unique_ptr<char[]> input_subfile_buffer;
+        size_t input_subfile_buffer_size = 0;
+
+        /** \brief Изменить размер буффера для чтения сжатого файла
+         * Данная функция работает только на увеличение размера буффера
+         * \param new_size новый размер
+         */
+        void increase_input_subfile_buffer_size(const size_t &new_size) {
+            if(new_size > input_subfile_buffer_size) {
+                input_subfile_buffer = std::unique_ptr<char[]>(new char[new_size]);
+                input_subfile_buffer_size = new_size;
+            }
+        }
+
 
         /** \brief Класс подфайла
          */
@@ -465,6 +496,49 @@ namespace xquotes_storage {
             return OK;
         }
 
+        /** \brief Прочитать подфайл
+         * \warning После каждого вызова данной функции необходимо очистить буфер!
+         * \param key ключ подфайла
+         * \param read_buffer буфер для чтения файла
+         * \param buffer read_buffer_size размер буфера для чтения, внутри метода может только увеличиться!
+         * \param buffer_size сюда будет помещен размер подфайла
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
+         */
+        int read_subfile(
+                const key_t &key,
+                std::unique_ptr<char[]> &read_buffer,
+                size_t &read_buffer_size,
+                unsigned long &buffer_size) {
+            if(!is_file_open) return FILE_NOT_OPENED;
+            // если ранее мы уже нашли подфайл
+            if(is_subfile_found && last_key_found == key) {
+                seek(last_link_found, std::ios::beg, file);
+                //if(buffer == NULL) buffer = new char[last_size_found];
+                if(last_size_found > read_buffer_size) {
+                    read_buffer = std::unique_ptr<char[]>(new char[last_size_found]);
+                    read_buffer_size = last_size_found;
+                }
+                file.read(read_buffer.get(), last_size_found);
+                return OK;
+            }
+
+            if(subfiles.size() == 0) return NO_SUBFILES;
+            Subfile *subfile = find_subfiles(key, subfiles);
+            if(subfile == NULL) return SUBFILES_NOT_FOUND;
+
+            // запоминаем найденный подфайл
+            save_subfile_found(subfile);
+            buffer_size = last_size_found;
+            seek(subfile->link, std::ios::beg, file);
+            //if(buffer == NULL) buffer = new char[last_size_found];
+            if(last_size_found > read_buffer_size) {
+                read_buffer = std::unique_ptr<char[]>(new char[last_size_found]);
+                read_buffer_size = last_size_found;
+            }
+            file.read(read_buffer.get(), subfile->size);
+            return OK;
+        }
+
         /** \brief Записать подфайл
          * \warning Если требуется перезаписать старый подфайл, размер которого изменился,
          * данный метод может создать временный файл для копирования данных!
@@ -529,30 +603,30 @@ namespace xquotes_storage {
             list_subfile.clear();
             if(is_go_to_beg) {
                 if(ind > 0 && subfiles[ind].key > key) {
-                    ind--;
+                    --ind;
                 } else
                 if(ind == 0 && subfiles[ind].key > key) return DATA_NOT_AVAILABLE;
                 while(ind >= 0 && (int)list_subfile.size() < num_subfile) {
                     if(f != NULL && f(subfiles[ind].key)) {
-                        ind--;
+                        --ind;
                         continue;
                     }
                     list_subfile.push_back(subfiles[ind].key);
-                    ind--;
+                    --ind;
                 }
                 std::reverse(list_subfile.begin(), list_subfile.end());
             } else {
                 if(ind < ((int)subfiles.size() + 1) && subfiles[ind].key < key) {
-                    ind++;
+                    ++ind;
                 } else
                 if(ind == ((int)subfiles.size() + 1) && subfiles[ind].key < key) return DATA_NOT_AVAILABLE;
                 while(ind < (int)subfiles.size() && (int)list_subfile.size() < num_subfile) {
                     if(f != NULL && f(subfiles[ind].key)) {
-                        ind++;
+                        ++ind;
                         continue;
                     }
                     list_subfile.push_back(subfiles[ind].key);
-                    ind++;
+                    ++ind;
                 }
             }
             return OK;
@@ -574,15 +648,17 @@ namespace xquotes_storage {
                 const unsigned long &buffer_size,
                 int compress_level = ZSTD_maxCLevel()) {
             if(!is_file_open) return FILE_NOT_OPENED;
-            size_t compressed_file_size = ZSTD_compressBound(buffer_size);
-            char *compressed_file_buffer = new char[compressed_file_size];
-            std::fill(compressed_file_buffer, compressed_file_buffer + compressed_file_size, '\0');
+            size_t new_compressed_file_size = ZSTD_compressBound(buffer_size);
+            increase_compressed_file_buffer_size(new_compressed_file_size);
+
+            //char *compressed_file_buffer = new char[compressed_file_size];
+            std::fill(compressed_file_buffer.get(), compressed_file_buffer.get() + new_compressed_file_size, '\0');
 
             ZSTD_CCtx* const cctx = ZSTD_createCCtx();
             size_t compressed_size = ZSTD_compress_usingDict(
                 cctx,
-                compressed_file_buffer,
-                compressed_file_size,
+                compressed_file_buffer.get(),
+                new_compressed_file_size,
                 buffer,
                 buffer_size,
                 dictionary_file_buffer,
@@ -593,12 +669,12 @@ namespace xquotes_storage {
             if(ZSTD_isError(compressed_size)) {
                 //std::cout << "compression error: " << ZSTD_getErrorName(compress_size) << std::endl;
                 ZSTD_freeCCtx(cctx);
-                delete [] compressed_file_buffer;
+                //delete [] compressed_file_buffer;
                 return SUBFILES_COMPRESSION_ERROR;
             }
-            int err = write_subfile(key, compressed_file_buffer, compressed_size);
+            int err = write_subfile(key, compressed_file_buffer.get(), compressed_size);
             ZSTD_freeCCtx(cctx);
-            delete [] compressed_file_buffer;
+            //delete [] compressed_file_buffer;
             return err;
         }
 
@@ -613,36 +689,34 @@ namespace xquotes_storage {
         int read_compressed_subfile(const key_t &key, char *&buffer, unsigned long& buffer_size) {
             if(!is_file_open) return FILE_NOT_OPENED;
             if(subfiles.size() == 0) return NO_SUBFILES;
-            char *input_subfile_buffer = NULL;
+            //char *input_subfile_buffer = NULL;
             // если ранее мы уже нашли подфайл
             if(is_subfile_found && last_key_found == key) {
-                input_subfile_buffer = new char[last_size_found];
+                increase_input_subfile_buffer_size(last_size_found);
                 seek(last_link_found, std::ios::beg, file);
-                file.read(input_subfile_buffer, last_size_found);
+                file.read(input_subfile_buffer.get(), last_size_found);
             } else {
                 Subfile *subfile = find_subfiles(key, subfiles);
                 if(subfile == NULL) return SUBFILES_NOT_FOUND;
-                input_subfile_buffer = new char[subfile->size];
+                increase_input_subfile_buffer_size(subfile->size);
                 seek(subfile->link, std::ios::beg, file);
-                file.read(input_subfile_buffer, subfile->size);
+                file.read(input_subfile_buffer.get(), subfile->size);
                 save_subfile_found(subfile);
             }
 
-            const unsigned long long decompress_file_size = ZSTD_getFrameContentSize(input_subfile_buffer, last_size_found);
+            const unsigned long long decompress_file_size = ZSTD_getFrameContentSize(input_subfile_buffer.get(), last_size_found);
             if(decompress_file_size == ZSTD_CONTENTSIZE_ERROR) {
-                //std::cout << file_name << " it was not compressed by zstd." << std::endl;
-                delete [] input_subfile_buffer;
-                input_subfile_buffer = NULL;
                 return NOT_DECOMPRESS_FILE;
             } else
             if(decompress_file_size == ZSTD_CONTENTSIZE_UNKNOWN) {
-                //std::cout << file_name << " original size unknown." << std::endl;
-                delete [] input_subfile_buffer;
-                input_subfile_buffer = NULL;
                 return NOT_DECOMPRESS_FILE;
             }
 
-            if(buffer == NULL) buffer = new char [decompress_file_size];
+            bool is_init_buffer = false;
+            if(buffer == NULL) {
+                buffer = new char [decompress_file_size];
+                is_init_buffer = true;
+            }
             std::fill(buffer, buffer + decompress_file_size, '\0');
 
             // на данном этапе переменная last_size_found в любом случае будет содержать размер файла
@@ -651,7 +725,7 @@ namespace xquotes_storage {
                 dctx,
                 buffer,
                 decompress_file_size,
-                input_subfile_buffer,
+                input_subfile_buffer.get(),
                 last_size_found,
                 dictionary_file_buffer,
                 dictionary_file_size);
@@ -659,17 +733,83 @@ namespace xquotes_storage {
             if(ZSTD_isError(subfile_size)) {
                 //std::cout << "error decompressin: " << ZSTD_getErrorName(subfile_size) << std::endl;
                 ZSTD_freeDCtx(dctx);
-                delete [] buffer;
-                delete [] input_subfile_buffer;
-                buffer =  NULL;
-                input_subfile_buffer = NULL;
+                if(is_init_buffer) {
+                    delete [] buffer;
+                    buffer =  NULL;
+                }
                 buffer_size = 0;
                 return NOT_DECOMPRESS_FILE;
             }
             buffer_size = subfile_size;
             ZSTD_freeDCtx(dctx);
-            delete [] input_subfile_buffer;
-            input_subfile_buffer = NULL;
+            return OK;
+        }
+
+        /** \brief Прочитать сжатый подфайл
+         * \warning После каждого вызова данной функции необходимо очистить буфер!
+         * Данная функция для декомпрессии использует словарь!
+         * \param key ключ подфайла
+         * \param read_buffer буфер для чтения файла
+         * \param buffer read_buffer_size размер буфера для чтения, внутри метода может только увеличиться!
+         * \param buffer_size сюда будет помещен размер подфайла после декомпресси
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
+         */
+        int read_compressed_subfile(
+                const key_t &key,
+                std::unique_ptr<char[]> &read_buffer,
+                size_t &read_buffer_size,
+                unsigned long& buffer_size) {
+            if(!is_file_open) return FILE_NOT_OPENED;
+            if(subfiles.size() == 0) return NO_SUBFILES;
+            //char *input_subfile_buffer = NULL;
+            // если ранее мы уже нашли подфайл
+            if(is_subfile_found && last_key_found == key) {
+                increase_input_subfile_buffer_size(last_size_found);
+                seek(last_link_found, std::ios::beg, file);
+                file.read(input_subfile_buffer.get(), last_size_found);
+            } else {
+                Subfile *subfile = find_subfiles(key, subfiles);
+                if(subfile == NULL) return SUBFILES_NOT_FOUND;
+                increase_input_subfile_buffer_size(subfile->size);
+                seek(subfile->link, std::ios::beg, file);
+                file.read(input_subfile_buffer.get(), subfile->size);
+                save_subfile_found(subfile);
+            }
+
+            const unsigned long long decompress_file_size = ZSTD_getFrameContentSize(input_subfile_buffer.get(), last_size_found);
+            if(decompress_file_size == ZSTD_CONTENTSIZE_ERROR) {
+                return NOT_DECOMPRESS_FILE;
+            } else
+            if(decompress_file_size == ZSTD_CONTENTSIZE_UNKNOWN) {
+                return NOT_DECOMPRESS_FILE;
+            }
+
+            if(decompress_file_size > read_buffer_size) {
+                read_buffer = std::unique_ptr<char[]>(new char[decompress_file_size]);
+                read_buffer_size = decompress_file_size;
+            }
+            char *buffer = read_buffer.get();
+            std::fill(buffer, buffer + decompress_file_size, '\0');
+
+            // на данном этапе переменная last_size_found в любом случае будет содержать размер файла
+            ZSTD_DCtx* const dctx = ZSTD_createDCtx();
+            const size_t subfile_size = ZSTD_decompress_usingDict(
+                dctx,
+                buffer,
+                decompress_file_size,
+                input_subfile_buffer.get(),
+                last_size_found,
+                dictionary_file_buffer,
+                dictionary_file_size);
+
+            if(ZSTD_isError(subfile_size)) {
+                //std::cout << "error decompressin: " << ZSTD_getErrorName(subfile_size) << std::endl;
+                ZSTD_freeDCtx(dctx);
+                buffer_size = 0;
+                return NOT_DECOMPRESS_FILE;
+            }
+            buffer_size = subfile_size;
+            ZSTD_freeDCtx(dctx);
             return OK;
         }
 #       endif // XQUOTES_USE_ZSTD
