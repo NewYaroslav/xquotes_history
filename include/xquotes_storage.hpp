@@ -828,7 +828,7 @@ namespace xquotes_storage {
          * \param max_key максимальный ключ подфайлов
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int get_min_max_key(key_t &min_key, key_t &max_key) {
+        int get_min_max_key(key_t &min_key, key_t &max_key) const {
             if(subfiles.size() == 0) return DATA_NOT_AVAILABLE;
             auto subfiles_max_it = std::max_element(
                 subfiles.begin(),
@@ -850,20 +850,24 @@ namespace xquotes_storage {
         /** \brief Получить количество подфайлов
          * \return количество подфайлов
          */
-        int get_num_subfiles() {return subfiles.size();};
+        inline int get_num_subfiles() {
+            return subfiles.size();
+        };
 
         /** \brief Получить ключ подфайла
          * \param ind индекс подфайла
          * \return ключ подфайла
          */
-        key_t get_key_subfiles(const int &ind) {
+        inline key_t get_key_subfiles(const int &ind) const {
             return subfiles[ind].key;
         }
 
         /** \brief Получить заметку файла
          * \return заметка файла (число, которое может хранить пользовательские биты настроек)
          */
-        note_t get_file_note() {return file_note;};
+        inline note_t get_file_note() const {
+            return file_note;
+        };
 
         /** \brief Установить заметку файла
          * \param new_file_note заметка файла (число, которое может хранить пользовательские биты настроек)

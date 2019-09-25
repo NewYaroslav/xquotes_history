@@ -951,7 +951,7 @@ namespace xquotes_history {
          * \param max_timestamp метка времени в начале дня конца исторических данных
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int get_min_max_day_timestamp(xtime::timestamp_t &min_timestamp, xtime::timestamp_t &max_timestamp) {
+        int get_min_max_day_timestamp(xtime::timestamp_t &min_timestamp, xtime::timestamp_t &max_timestamp) const {
             key_t key_min, key_max;
             int err = get_min_max_key(key_min, key_max);
             if(err == OK) {
@@ -1200,7 +1200,7 @@ namespace xquotes_history {
         /** \brief Получить число символов в классе исторических данных
          * \return число символов, валютных пар, индексов и пр. вместе взятых
          */
-        int get_num_symbols() {
+        inline int get_num_symbols() {
             return symbols.size();
         }
 
