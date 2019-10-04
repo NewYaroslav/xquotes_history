@@ -802,6 +802,35 @@ namespace xquotes_history {
             return OK;
         }
 
+        /** \brief Проверить бинарный опцион с защитой от "подглядывания в будущее".
+         * Данный метод проверяет состояние бинарного опциона и может иметь три состояния (удачный прогноз, нейтральный и неудачный).
+         * При поиске цены входа в опцион данный метод в первую очередь проверит последнюю полученную цену (если используется оптимизация),
+         * которая была получена через метод get_candle. Если метка времени последней полученной цены не совпадает с требуемой,
+         * то метод начнет поиск цены в хранилище.
+         * \warning Будьте аккуратны! Данный метод может создать эффект "подглядывания в будущее", если неправильно указать last_timestamp!
+         * \param state Состояние бинарного опциона (удачная сделка WIN = 1, убыточная LOSS = -1 и нейтральная NEUTRAL = 0).
+         * \param contract_type Тип контракта (доступно BUY = 1 и SELL = -1).
+         * \param duration_sec Длительность опциона в секундах.
+         * \param open_timestamp Метка времени начала опциона.
+         * \param last_timestamp Последняя допустимая метка времени.
+         * \param price_type Цена входа в опцион (цена закрытия PRICE_CLOSE или открытия PRICE_OPEN свечи).
+         * \param optimization Оптимизация чтения данных.
+         * Для отключения указать WITHOUT_OPTIMIZATION.
+         * По умолчанию включена оптимизация последовательного считывания минут OPTIMIZATION_SEQUENTIAL_READING
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp.
+         */
+        int check_protected_binary_option(
+                int& state,
+                const int &contract_type,
+                const int &duration_sec,
+                const xtime::timestamp_t &open_timestamp,
+                const xtime::timestamp_t &last_timestamp,
+                const int &price_type = PRICE_CLOSE,
+                const int &optimization = OPTIMIZATION_SEQUENTIAL_READING) {
+            if((open_timestamp + duration_sec)>= last_timestamp) return DATA_NOT_AVAILABLE;
+            return check_binary_option(state, contract_type, duration_sec, open_timestamp, price_type, optimization);
+        }
+
         /** \brief Проверить ордер (метод пока не доделан!)
          * Данный метод вычисляет профит открытого ордера
          * При поиске цены входа в сделку данный метод в первую очередь проверит последнюю полученную цену (если используется оптимизация),

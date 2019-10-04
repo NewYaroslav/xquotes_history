@@ -30,10 +30,18 @@ int main(int argc, char *argv[]) {
     iQuotesHistory.get_candle(start_candle, xtime::get_timestamp(1,3,2018,7,0,0));
     iQuotesHistory.get_candle(stop_candle, xtime::get_timestamp(1,3,2018,7,3,0));
     iQuotesHistory.get_candle(test_candle, xtime::get_timestamp(1,3,2018,7,0,0) + 3*xtime::SECONDS_IN_MINUTE);
+    // выводим цены свечей
     std::cout << start_candle.close << " " << stop_candle.close << " " << test_candle.close << std::endl;
     int state = xquotes_history::NEUTRAL;
+    // метод для получения результата бинарного опицона
     int err_bo = iQuotesHistory.check_binary_option(state, xquotes_history::SELL, 3*xtime::SECONDS_IN_MINUTE, xtime::get_timestamp(1,3,2018,7,0,0));
     std::cout << "err_bo " << err_bo << " " << state << std::endl;
+    // проверяем метод с защитой от подглядывания в будущее
+    int err_protected_bo = iQuotesHistory.check_protected_binary_option(state, xquotes_history::SELL, 3*xtime::SECONDS_IN_MINUTE, xtime::get_timestamp(1,3,2018,7,0,0), xtime::get_timestamp(1,3,2018,8,0,0));
+    std::cout << "err_protected_bo " << err_protected_bo << " " << state << std::endl;
+    // здесь метод с защитой от подглядывания в будущее должен выдать ошибку
+    err_protected_bo = iQuotesHistory.check_protected_binary_option(state, xquotes_history::SELL, 3*xtime::SECONDS_IN_MINUTE, xtime::get_timestamp(1,3,2018,7,0,0), xtime::get_timestamp(1,3,2018,7,0,3));
+    std::cout << "err_protected_bo " << err_protected_bo << " " << state << std::endl;
     system("pause");
     return 0;
 }

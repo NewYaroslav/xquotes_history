@@ -133,7 +133,7 @@ namespace xquotes_storage {
             }
         }
 
-        Subfile *find_subfiles(const key_t &key, std::vector<Subfile> &_subfiles) {
+        Subfile *find_subfiles(const key_t &key, std::vector<Subfile> &_subfiles) const {
             if(_subfiles.size() == 0) return NULL;
             auto subfiles_it = std::lower_bound(
                 _subfiles.begin(),
@@ -467,7 +467,7 @@ namespace xquotes_storage {
         }
 
         /** \brief Прочитать подфайл
-         * \warning После каждого вызова данной функции необходимо очистить буфер!
+         * \warning После каждого вызова данной функции необходимо очистить буфер! (если он не был инициализирован заранее)
          * \param key ключ подфайла
          * \param buffer буфер для чтения файла. Если равен NULL, функция сама выделит память!
          * \param buffer_size сюда будет помещен размер буфера (подфайла)
@@ -497,7 +497,7 @@ namespace xquotes_storage {
         }
 
         /** \brief Прочитать подфайл
-         * \warning После каждого вызова данной функции необходимо очистить буфер!
+         * \warning Данная функция может сама инициализировать буфер
          * \param key ключ подфайла
          * \param read_buffer буфер для чтения файла
          * \param buffer read_buffer_size размер буфера для чтения, внутри метода может только увеличиться!
@@ -568,7 +568,7 @@ namespace xquotes_storage {
         bool check_subfile(const key_t &key) {
             if(subfiles.size() == 0) return false;
             if(is_subfile_found && last_key_found == key) return true;
-            Subfile *subfile = find_subfiles(key, subfiles);
+            const Subfile *subfile = find_subfiles(key, subfiles);
             if(subfile == NULL) return false;
             save_subfile_found(subfile);
             return true;
