@@ -9,7 +9,7 @@
 #include <ctime>
 #include <stdio.h>
 
-#define ZQHTOOLS_VERSION "1.2"
+#define ZQHTOOLS_VERSION "1.3"
 
 enum {
     XQHTOOLS_CSV_TO_HEX = 0,
@@ -162,8 +162,8 @@ int csv_to_hex(const int argc, char *argv[]) {
     int type_price = xquotes_history::PRICE_OHLC;
     bool is_read_header = false;
     bool is_alpari = false;
-    std::string path_hex = "";
-    std::string path_csv = "";
+    std::string path_hex;
+    std::string path_csv;
     for(int i = 1; i < argc; ++i) {
         std::string value = std::string(argv[i]);
         if(value == "-cetgmt" || value == "-finam") time_zone = xquotes_history::CET_TO_GMT;
@@ -202,7 +202,7 @@ int csv_to_hex(const int argc, char *argv[]) {
         }
     }
 
-    if(path_hex == "" || path_csv == "" || path_hex == path_csv || bf::get_file_extension(path_hex) != "") {
+    if(path_hex.size() == 0 || path_csv.size() == 0 || path_hex == path_csv || bf::get_file_extension(path_hex).size() != 0) {
         std::cout << "error! no path or directory specified" << std::endl;
         return -1;
     }
@@ -298,8 +298,8 @@ int csv_to_qhs(const int argc, char *argv[]) {
     bool is_read_header = false;
     bool is_alpari = false;
     bool is_compression = false;
-    std::string path_storage = "";
-    std::string path_csv = "";
+    std::string path_storage;
+    std::string path_csv;
     for(int i = 1; i < argc; ++i) {
         std::string value = std::string(argv[i]);
         if(value == "-cetgmt" || value == "-finam") time_zone = xquotes_history::CET_TO_GMT;
@@ -437,7 +437,7 @@ int csv_to_qhs(const int argc, char *argv[]) {
 #       endif
     }
 
-    if(path_storage == "" || path_csv == "" || path_storage == path_csv) {
+    if(path_storage.size() == 0 || path_csv.size() == 0 || path_storage == path_csv) {
         std::cout << "error! no path or directory specified" << std::endl;
         return -1;
     }
@@ -514,9 +514,9 @@ int qhs_to_csv(const int argc, char *argv[]) {
     int type_csv = xquotes_csv::MT4;
     int type_correction_candle = xquotes_csv::SKIPPING_BAD_CANDLES;
     bool is_write_header = false;
-    std::string path_storage = "";
-    std::string path_csv = "";
-    std::string header = "";
+    std::string path_storage;
+    std::string path_csv;
+    std::string header;
     for(int i = 1; i < argc; ++i) {
         std::string value = std::string(argv[i]);
         if(value == "-cetgmt" || value == "-finam") time_zone = xquotes_history::CET_TO_GMT;
@@ -561,7 +561,7 @@ int qhs_to_csv(const int argc, char *argv[]) {
             type_correction_candle = xquotes_csv::WRITE_BAD_CANDLES;
         }
     }
-    if(path_storage == "" || path_csv == "" || path_storage == path_csv) {
+    if(path_storage.size() == 0 || path_csv.size() == 0 || path_storage == path_csv) {
         std::cout << "error! no path or directory specified" << std::endl;
         return -1;
     }
@@ -618,7 +618,7 @@ int qhs_to_csv(const int argc, char *argv[]) {
 
 int qhs_date(const int argc, char *argv[]) {
     int time_zone = xquotes_history::DO_NOT_CHANGE_TIME_ZONE;
-    std::string path_storage = "";
+    std::string path_storage;
     for(int i = 1; i < argc; ++i) {
         std::string value = std::string(argv[i]);
         if((value == "path_storage") && (i + 1) < argc) {
@@ -636,7 +636,7 @@ int qhs_date(const int argc, char *argv[]) {
         else
         if(value == "-mskgmt") time_zone = xquotes_history::MSK_TO_GMT;
     }
-    if(path_storage == "") {
+    if(path_storage.size() == 0) {
         std::cout << "error! no path or directory specified" << std::endl;
         return -1;
     }
@@ -684,10 +684,10 @@ int qhs_date(const int argc, char *argv[]) {
 }
 
 int zstd_train(const int argc, char *argv[]) {
-    std::string path_raw_storage = "";
-    std::string path_raw = "";
-    std::string path_dictionary = "";
-    std::string dictionary_name = "";
+    std::string path_raw_storage;
+    std::string path_raw;
+    std::string path_dictionary;
+    std::string dictionary_name;
     bool is_rnd = false;
     bool is_cpp = false;
     int fill_factor = 100;
@@ -719,12 +719,12 @@ int zstd_train(const int argc, char *argv[]) {
         if(value == "-cpp") is_cpp = true;
     }
 
-    if(path_dictionary == "" || (dictionary_name == "" && is_cpp)) {
+    if(path_dictionary.size() == 0 || (dictionary_name.size() == 0 && is_cpp)) {
         std::cout << "error! no file name or file path specified!" << std::endl;
         return -1;
     }
 
-    if(path_raw_storage != "") {
+    if(path_raw_storage.size() != 0) {
         xquotes_storage::Storage iStorage(path_raw_storage);
 
         // получим количество подфайлов
@@ -766,7 +766,7 @@ int zstd_train(const int argc, char *argv[]) {
             return -1;
         }
     } else
-    if(path_raw != "") {
+    if(path_raw.size() != 0) {
         std::vector<std::string> files_list;
         bf::get_list_files(path_raw, files_list, true);
         if(files_list.size() == 0) {
@@ -809,7 +809,7 @@ int zstd_train(const int argc, char *argv[]) {
 
 int merge_date(const int argc, char *argv[]) {
     std::vector<std::string> paths_raw_storages;
-    std::string path_out_raw_storage = "";
+    std::string path_out_raw_storage;
     for(int i = 1; i < argc; ++i) {
         std::string value = std::string(argv[i]);
         if((value == "paths_raw_storages") && (i + 1) < argc) {
@@ -821,7 +821,7 @@ int merge_date(const int argc, char *argv[]) {
         }
     }
 
-    if(path_out_raw_storage == "" || paths_raw_storages.size() <= 1) {
+    if(path_out_raw_storage.size() == 0 || paths_raw_storages.size() <= 1) {
         std::cout << "error, not all data specified!" << std::endl;
         return -1;
     }

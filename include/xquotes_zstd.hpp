@@ -71,7 +71,7 @@ namespace xquotes_zstd {
             const std::vector<int> &subfiles_list,
             const std::string &path,
             const std::string &name,
-            const size_t &dict_buffer_capacit = 102400,
+            const size_t dict_buffer_capacit = 102400,
             const bool is_file = true) {
 
         // буферы для подготовки образцов обучения
@@ -91,7 +91,6 @@ namespace xquotes_zstd {
                 subfiles_counter++;
             }
         }
-
         // выделим память под образцы
         samples_buffer = malloc(subfiles_size);
         samples_size = (size_t*)malloc(subfiles_counter * sizeof(size_t));
@@ -104,26 +103,23 @@ namespace xquotes_zstd {
                 num_subfiles++;
                 size_t start_pos = all_subfiles_size;
                 all_subfiles_size += subfile_size;
+
                 samples_size[num_subfiles - 1] = subfile_size;
                 char *point_buffer = (char*)samples_buffer + start_pos;
                 int err_read = storage.read_subfile(subfiles_list[i], point_buffer, subfile_size);
 
                 if(err_read != OK) {
                     std::cout << "read subfile error, subfile: " << subfiles_list[i] << " code: " << err_read << std::endl;
-                    if(samples_buffer != NULL)
-                        free(samples_buffer);
-                    if(samples_size != NULL)
-                        free(samples_size);
+                    if(samples_buffer != NULL) free(samples_buffer);
+                    if(samples_size != NULL) free(samples_size);
                     return NOT_OPEN_FILE;
                 } else {
                     std::cout << "subfile: " << subfiles_list[i] << " #" << num_subfiles << "/" << subfiles_list.size() << "\r";
                 }
             } else {
                 std::cout << "storage error, subfile: " << subfiles_list[i] << " code: " << err_stor << std::endl;
-                if(samples_buffer != NULL)
-                    free(samples_buffer);
-                if(samples_size != NULL)
-                    free(samples_size);
+                if(samples_buffer != NULL) free(samples_buffer);
+                if(samples_size != NULL) free(samples_size);
                 return NOT_OPEN_FILE;
             }
         }
@@ -132,10 +128,14 @@ namespace xquotes_zstd {
         void *dict_buffer = NULL;
         dict_buffer = malloc(dict_buffer_capacit);
         memset(dict_buffer, 0, dict_buffer_capacit);
-        size_t file_size = ZDICT_trainFromBuffer(dict_buffer, dict_buffer_capacit, samples_buffer, samples_size, num_subfiles);
+        size_t dictionary_size = ZDICT_trainFromBuffer(dict_buffer, dict_buffer_capacit, samples_buffer, samples_size, num_subfiles);
+        if(ZDICT_isError(dictionary_size)) {
+            std::cout << "zstd error: " << ZDICT_getErrorName(dictionary_size) << std::endl;
+            return DATA_NOT_AVAILABLE;
+        }
 
         if(is_file) {
-            size_t err = bf::write_file(path, dict_buffer, file_size);
+            size_t err = bf::write_file(path, dict_buffer, dictionary_size);
             return err > 0 ? OK : NOT_WRITE_FILE;
         } else {
             std::string dictionary_name_upper = str_toupper(name);
@@ -143,19 +143,25 @@ namespace xquotes_zstd {
 
             // сохраним как с++ файл
             unsigned char *dict_buffer_point = (unsigned char *)dict_buffer;
+
             std::string out;
             out += "#ifndef XQUOTES_DICTIONARY_" + dictionary_name_upper+ "_HPP_INCLUDED\n";
             out += "#define XQUOTES_DICTIONARY_" + dictionary_name_upper + "_HPP_INCLUDED\n";
             out += "\n";
             out += "namespace zstd_dictionary {\n";
-            out += "\tconst static unsigned char " + dictionary_name_lower + "[" + std::to_string(file_size) + "] = {\n";
+            out += "\tconst static unsigned char ";
+            out += dictionary_name_lower;
+            out += "[";
+            out += std::to_string(dictionary_size);
+            out += "] = {\n";
             out += "\t\t";
-            for(size_t j = 0; j < file_size; ++j) {
+            for(size_t j = 0; j < dictionary_size; ++j) {
                 if(j > 0 && (j % 16) == 0) {
                     out += "\n\t\t";
                 }
-                out += convert_hex_to_string(dict_buffer_point[j]) + ",";
-                if(j == file_size - 1) {
+                out += convert_hex_to_string(dict_buffer_point[j]);
+                out += ",";
+                if(j == dictionary_size - 1) {
                     out += "\n\t};\n";
                 }
             }

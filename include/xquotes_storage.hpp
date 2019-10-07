@@ -814,6 +814,14 @@ namespace xquotes_storage {
         }
 #       endif // XQUOTES_USE_ZSTD
 
+        /** \brief Сохранить файл хранилища
+         */
+        void save() {
+            if(file.is_open()) {
+                if(is_write) write_header(file, subfiles);
+            }
+        }
+
         /** \brief Закрыть файл хранилища
          */
         virtual void close() {
@@ -850,7 +858,7 @@ namespace xquotes_storage {
         /** \brief Получить количество подфайлов
          * \return количество подфайлов
          */
-        inline int get_num_subfiles() {
+        inline size_t get_num_subfiles() {
             return subfiles.size();
         };
 
@@ -873,6 +881,26 @@ namespace xquotes_storage {
          * \param new_file_note заметка файла (число, которое может хранить пользовательские биты настроек)
          */
         void set_file_note(note_t new_file_note) {file_note = new_file_note;};
+
+        /** \brief Переименовать подфайл
+         * \param key старый ключ подфайла
+         * \param new_key новый ключ подфайла
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
+         */
+        int rename_subfile(const key_t &key, const key_t &new_key) {
+            if(subfiles.size() == 0) return DATA_NOT_AVAILABLE;
+            auto subfiles_it = std::lower_bound(
+                subfiles.begin(),
+                subfiles.end(),
+                key,
+                [](const Subfile &lhs, const key_t &key) {
+                return lhs.key < key;
+            });
+            if(subfiles_it == subfiles.end()) return DATA_NOT_AVAILABLE;
+            size_t ind = (size_t)(subfiles_it - subfiles.begin());
+            subfiles[ind].key = new_key;
+            sort_subfiles(subfiles);
+        }
 
         virtual ~Storage() {
             close();
