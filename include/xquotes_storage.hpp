@@ -252,6 +252,7 @@ namespace xquotes_storage {
                 _file.write(reinterpret_cast<char *>(&_subfiles[i].link), sizeof(link_t));
             }
             _file.write(reinterpret_cast<char *>(&file_note), sizeof(file_note));
+			_file.flush();
         }
 
         inline bool create_file(const std::string &file_name) {
@@ -480,6 +481,7 @@ namespace xquotes_storage {
                 seek(last_link_found, std::ios::beg, file);
                 if(buffer == NULL) buffer = new char[last_size_found];
                 file.read(buffer, last_size_found);
+				buffer_size = last_size_found;
                 return OK;
             }
 
@@ -513,12 +515,12 @@ namespace xquotes_storage {
             // если ранее мы уже нашли подфайл
             if(is_subfile_found && last_key_found == key) {
                 seek(last_link_found, std::ios::beg, file);
-                //if(buffer == NULL) buffer = new char[last_size_found];
                 if(last_size_found > read_buffer_size) {
                     read_buffer = std::unique_ptr<char[]>(new char[last_size_found]);
                     read_buffer_size = last_size_found;
                 }
                 file.read(read_buffer.get(), last_size_found);
+				buffer_size = last_size_found;
                 return OK;
             }
 
@@ -528,14 +530,14 @@ namespace xquotes_storage {
 
             // запоминаем найденный подфайл
             save_subfile_found(subfile);
-            buffer_size = last_size_found;
             seek(subfile->link, std::ios::beg, file);
-            //if(buffer == NULL) buffer = new char[last_size_found];
+			
             if(last_size_found > read_buffer_size) {
                 read_buffer = std::unique_ptr<char[]>(new char[last_size_found]);
                 read_buffer_size = last_size_found;
             }
             file.read(read_buffer.get(), subfile->size);
+			buffer_size = last_size_found;
             return OK;
         }
 

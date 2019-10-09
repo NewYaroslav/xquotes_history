@@ -21,6 +21,7 @@ void check_test_data(xquotes_storage::Storage &iStorage, unsigned long long key,
     unsigned long len = 0;
     int err = iStorage.get_subfile_size(key, len);
     std::cout << "get_subfile_size " << key << " code " << err << " len " << len << std::endl;
+    std::cout << "check_subfile " << iStorage.check_subfile(key) << std::endl;
     err = iStorage.read_subfile(key, data, len);
     std::cout << "read_subfile " << key << " code " << err << " len " << len << std::endl;
     if(err == 0) {

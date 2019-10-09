@@ -50,6 +50,7 @@
 		<Unit filename="../../include/xquotes_csv.hpp" />
 		<Unit filename="../../include/xquotes_files.hpp" />
 		<Unit filename="../../include/xquotes_history.hpp" />
+		<Unit filename="../../include/xquotes_storage.hpp" />
 		<Unit filename="../../include/xquotes_zstd.hpp" />
 		<Unit filename="../../lib/banana-filesystem-cpp/include/banana_filesystem.hpp" />
 		<Unit filename="../../lib/xtime_cpp/src/xtime.cpp" />
