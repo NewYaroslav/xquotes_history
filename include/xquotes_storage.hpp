@@ -51,6 +51,7 @@ namespace xquotes_storage {
     using namespace xquotes_common;
 
     /** \brief Класс для работы с файлом-хранилищем котировок
+     * \details Данный класс является родителем классов-хранилищ данных
      */
     class Storage {
         protected:
@@ -68,7 +69,7 @@ namespace xquotes_storage {
         size_t compressed_file_buffer_size = 0;           /**< Размер буфера для записи */
 
         /** \brief Изменить размер буффера для записи сжатого файла
-         * Данная функция работает только на увеличение размера буффера
+         * \details Данная функция работает только на увеличение размера буффера
          * \param new_size новый размер
          */
         void increase_compressed_file_buffer_size(const size_t &new_size) {
@@ -82,7 +83,7 @@ namespace xquotes_storage {
         size_t input_subfile_buffer_size = 0;
 
         /** \brief Изменить размер буффера для чтения сжатого файла
-         * Данная функция работает только на увеличение размера буффера
+         * \details Данная функция работает только на увеличение размера буффера
          * \param new_size новый размер
          */
         void increase_input_subfile_buffer_size(const size_t &new_size) {
@@ -448,7 +449,7 @@ namespace xquotes_storage {
         }
 
         /** \brief Получить размер подфайла
-         * Данная функция позволяет узнать размер подфайла
+         * \details Данная функция позволяет узнать размер подфайла
          * \param key ключ подфайла
          * \param size размер подфайла
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
@@ -531,7 +532,7 @@ namespace xquotes_storage {
             // запоминаем найденный подфайл
             save_subfile_found(subfile);
             seek(subfile->link, std::ios::beg, file);
-			
+
             if(last_size_found > read_buffer_size) {
                 read_buffer = std::unique_ptr<char[]>(new char[last_size_found]);
                 read_buffer_size = last_size_found;
