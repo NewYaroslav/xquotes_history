@@ -7,3 +7,6 @@
 [submodule "lib/banana-filesystem-cpp"]
 	path = lib/banana-filesystem-cpp
 	url = https://github.com/NewYaroslav/banana-filesystem-cpp.git
+[submodule "lib/json"]
+	path = lib/json
+	url = https://github.com/nlohmann/json.git

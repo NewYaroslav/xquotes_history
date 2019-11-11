@@ -318,8 +318,8 @@ namespace xquotes_daily_data_storage {
          */
         int get_day_data(
                 T &day_data,
-                const xtime::timestamp_t &timestamp,
-                const int &optimization = xquotes_common::OPTIMIZATION_SEQUENTIAL_READING) {
+                const xtime::timestamp_t timestamp,
+                const int optimization = xquotes_common::OPTIMIZATION_SEQUENTIAL_READING) {
             if(optimization == xquotes_common::WITHOUT_OPTIMIZATION) {
                 return find_day_data(day_data, timestamp);
             } else
@@ -357,8 +357,8 @@ namespace xquotes_daily_data_storage {
          * \return Вернет данные за указанный день
          */
         T &get_day_data(
-                const xtime::timestamp_t &timestamp,
-                const int &optimization = xquotes_common::OPTIMIZATION_SEQUENTIAL_READING) {
+                const xtime::timestamp_t timestamp,
+                const int optimization = xquotes_common::OPTIMIZATION_SEQUENTIAL_READING) {
             if(optimization == xquotes_common::WITHOUT_OPTIMIZATION) {
                 return get_link_day_data(timestamp);
             } else
@@ -412,7 +412,7 @@ namespace xquotes_daily_data_storage {
         };
 	};
 
-	typedef DailyDataStorage<std::string> StringStorage;
+	typedef DailyDataStorage<std::string> StringStorage;    /**< Хранилище строк */
 }
 
-#endif // XQUOTES_STORAGE_HPP_INCLUDED
+#endif // XQUOTES_DAILY_DATA_STORAGE_HPP_INCLUDED

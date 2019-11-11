@@ -1,4 +1,4 @@
-#include "xquotes_daily_data_storage.hpp"
+#include "xquotes_json_storage.hpp"
 #include <iostream>
 
 int main(int argc, char *argv[]) {
