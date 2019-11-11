@@ -112,6 +112,7 @@ int err_trade = iMultipleQuotesHistory.trade(
 * *xquotes_dictionary_candles_with_volumes.hpp, xquotes_dictionary_candles.hpp, xquotes_dictionary_only_one_price.hpp* - словари для zstd
 * *xquotes_storage.hpp* - класс универсального хранилища данных для храннеия любых данных. Является родителем класса QuotesHistory
 * *xquotes_history.hpp* - файл содержит два класса: QuotesHistory и MultipleQuotesHistory. Оба класса позволяют работать с историческими данными котировок
+* *xquotes_daily_data_storage.hpp* - шаблон класса универсального хранилища данных для храннеия любых данных с разбиением по дням. Может хранить, например, std::string
 
 ### Расширения файлов
 
@@ -149,6 +150,30 @@ int err_trade = iMultipleQuotesHistory.trade(
 
 В папке *drakon_scheme\storage* находятся блок-схемы поясняющие работу класса *Storage*, который является родителем класса *QuotesHistory*.
 Класс *Storage* можно использовать не только для хранения котирвок, но также для хранения любых других данных, например для храннеия промежуточных результатов тестирования торговой стратегии или результата оптимизации.
+
+## Пример использования шабла класса хранилища данных для храннеия любых данных с разбиением по дням
+
+```cpp
+#include "xquotes_daily_data_storage.hpp"
+
+int main(int argc, char *argv[]) {
+    std::cout << "start!" << std::endl;
+    xquotes_daily_data_storage::DailyDataStorage<std::string> iStorage("test.dat");
+	
+	// запишем в хранилище строки с указанными датами
+    iStorage.write_day_data("Hello!", xtime::get_timestamp(1,1,2018));
+    iStorage.write_day_data("Hey!", xtime::get_timestamp(2,1,2018));
+    iStorage.write_day_data("123", xtime::get_timestamp(2,1,2018));
+	
+    std::string temp;
+    iStorage.get_day_data(temp, xtime::get_timestamp(2,1,2018));
+	// выведет 123
+    std::cout << "get_day_data " << temp << std::endl;
+	std::cout << "get_day_data " << iStorage.get_day_data(xtime::get_timestamp(2,1,2018)) << std::endl;
+    system("pause");
+    return 0;
+}
+```
 
 ## Полезные ссылки
 
