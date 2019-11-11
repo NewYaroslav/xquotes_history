@@ -35,7 +35,6 @@ namespace xquotes_json_storage {
     using namespace xquotes_common;
     using json = nlohmann::json;
 
-#if(1)
     /** \brief Класс для работы с JSON
      */
 	class JsonStorage : public xquotes_daily_data_storage::StringStorage {
@@ -90,7 +89,6 @@ namespace xquotes_json_storage {
             }
         }
 	};
-#endif
 }
 
 #endif // XQUOTES_JSON_STORAGE_HPP_INCLUDED
