@@ -1,4 +1,5 @@
 #include "xquotes_daily_data_storage.hpp"
+#include <iostream>
 
 int main(int argc, char *argv[]) {
     std::cout << "start!" << std::endl;
