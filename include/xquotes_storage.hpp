@@ -164,7 +164,7 @@ namespace xquotes_storage {
                     [](const key_t &key, const Subfile &rhs) {
                     return key < rhs.key;
                 });
-                if(subfiles_it == _subfiles.end()) {
+                if(subfiles_it == _subfiles.end() || subfiles_it == _subfiles.begin()) {
                      _subfiles.insert(subfiles_it, Subfile(key, size, link));
                 } else
                 if(subfiles_it->key == key) {

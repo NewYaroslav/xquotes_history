@@ -163,12 +163,13 @@ int main(int argc, char *argv[]) {
 	// запишем в хранилище строки с указанными датами
     iStorage.write_day_data("Hello!", xtime::get_timestamp(1,1,2018));
     iStorage.write_day_data("Hey!", xtime::get_timestamp(2,1,2018));
-    iStorage.write_day_data("123", xtime::get_timestamp(2,1,2018));
+    iStorage.write_day_data("123", xtime::get_timestamp(3,1,2018));
 	
     std::string temp;
     iStorage.get_day_data(temp, xtime::get_timestamp(2,1,2018));
+	
 	// выведет 123
-    std::cout << "get_day_data " << temp << std::endl;
+	std::cout << "get_day_data " << temp << std::endl;
 	std::cout << "get_day_data " << iStorage.get_day_data(xtime::get_timestamp(2,1,2018)) << std::endl;
     system("pause");
     return 0;
