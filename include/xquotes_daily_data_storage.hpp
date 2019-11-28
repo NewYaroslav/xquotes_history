@@ -38,6 +38,7 @@
 #include "xquotes_storage.hpp"
 #include <memory>
 #include <utility>
+#include <functional>
 
 namespace xquotes_daily_data_storage {
     using namespace xquotes_common;
@@ -404,6 +405,44 @@ namespace xquotes_daily_data_storage {
             min_timestamp = min_key * xtime::SECONDS_IN_DAY;
             max_timestamp = max_key * xtime::SECONDS_IN_DAY;
             return err;
+        }
+
+        /** \brief Обработать несколько дней
+         *
+         * Внимание! Данный метод выполняет доступ к данным в обратном порядке!
+         * Данные за дату, указанную в stop_timestamp, будут включены в обработку!
+         * \param days Количество дней
+         * \param stop_timestamp Конечная метка времени (Включительно!)
+         * \return Вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
+         */
+        int process_few_days_reverse(
+                const uint32_t days,
+                const xtime::timestamp_t stop_timestamp,
+                std::function<bool(
+                    T &day_data,
+                    const xtime::timestamp_t timestamp)> callback) {
+            xtime::timestamp_t min_timestamp = 0;
+			xtime::timestamp_t max_timestamp = 0;
+			int err = get_min_max_timestamp(min_timestamp, max_timestamp);
+			if(err != xquotes_common::OK) return err;
+			xtime::timestamp_t timestamp = xtime::get_first_timestamp_day(stop_timestamp);
+			uint32_t day = 0;
+			while(day < days && timestamp >= min_timestamp) {
+				/* проверяем доступность данных за требуемую дату */
+				if(!check_timestamp(timestamp)) {
+					timestamp -= xtime::SECONDS_IN_DAY;
+					continue;
+				}
+				/* обрабатываем данные за день */
+				if(callback(get_day_data(timestamp), timestamp)) {
+                    ++day;
+				}
+				timestamp -= xtime::SECONDS_IN_DAY;
+			}
+			if(day < days) {
+				return DATA_NOT_AVAILABLE;
+			}
+			return OK;
         }
 
         ~DailyDataStorage() {

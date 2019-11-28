@@ -308,12 +308,12 @@ namespace xquotes_storage {
                     is_subfile_found = false;
                 }
                 // находим случайное имя файла
-                int seed = 0;
+                int seed = xtime::get_milliseconds();
                 std::string temp_file = "";
                 while(true) {
                     temp_file = get_random_name(seed);
                     if(!bf::check_file(temp_file)) break;
-                    seed++;
+                    ++seed;
                 }
                 if(!create_file(temp_file)) return FILE_CANNOT_OPENED;
                 // создаем файл и пишем в него
