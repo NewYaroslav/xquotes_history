@@ -308,7 +308,7 @@ namespace xquotes_storage {
                     is_subfile_found = false;
                 }
                 // находим случайное имя файла
-                int seed = xtime::get_milliseconds();
+                int seed = xtime::get_millisecond();
                 std::string temp_file = "";
                 while(true) {
                     temp_file = get_random_name(seed);
