@@ -319,23 +319,20 @@ namespace xquotes_history {
          */
         int read_candles(std::array<CANDLE_TYPE, MINUTES_IN_DAY>& candles, const key_t &key, const xtime::timestamp_t &timestamp) {
             int err = 0;
-            //char *buffer = NULL;
             unsigned long buffer_size = 0;
-            //increase_read_candles_buffer_size(buffer_size);
             fill_timestamp(candles, timestamp);
             if(is_use_dictionary) err = read_compressed_subfile(key, read_candles_buffer, read_candles_buffer_size, buffer_size);
             else err = read_subfile(key, read_candles_buffer, read_candles_buffer_size, buffer_size);
             if(err != OK) {
-                //if(buffer != NULL) delete [] buffer;
                 return err;
             }
             err = convert_buffer_to_candles(candles, read_candles_buffer.get(), buffer_size);
-            //delete [] buffer;
             return err;
         }
 
         /** \brief Прочитать данные
-         * \warning Данный метод нужен для внутреннего использования
+         *
+         * Данный метод нужен для внутреннего использования
          * \param timestamp временная метка требуемого дня котировоки (это обязательно начало дня!)
          * \param indent_dn отступ от временная метки в днях на уменьшение времени
          * \param indent_up отступ от временная метки в днях на увеличение времени
@@ -419,6 +416,7 @@ namespace xquotes_history {
          * \param user_price_type пользовательная настройка цены
          */
         void update_file_notes(const int &user_price_type) {
+
 #           ifdef XQUOTES_USE_DICTIONARY_CURRENCY_PAIR
             const unsigned int PRICE_TYPE_NOTES_MASK = 0x0F;
             const unsigned int COMPRESSION_BIT = 0x10;
@@ -437,6 +435,7 @@ namespace xquotes_history {
                 is_use_dictionary = notes & COMPRESSION_BIT ? true : false;
             }
 #           else
+
             const unsigned int PRICE_TYPE_NOTES_MASK = 0x0F;
             const unsigned int COMPRESSION_BIT = 0x10;
             if(get_num_subfiles() == 0) {
@@ -517,6 +516,7 @@ namespace xquotes_history {
                     set_dictionary((const char*)dictionary_only_one_price, sizeof(dictionary_only_one_price));
                     break;
                 case PRICE_OHLC:
+
 #                   ifdef XQUOTES_USE_DICTIONARY_CURRENCY_PAIR
                     switch (QuotesHistory::currency_pair){
                     default:
@@ -615,7 +615,9 @@ namespace xquotes_history {
                         break;
                     }
 #                   else
+
                     set_dictionary((const char*)dictionary_candles, sizeof(dictionary_candles));
+
 #                   endif
                     break;
                 case PRICE_OHLCV:
@@ -653,7 +655,7 @@ namespace xquotes_history {
                 const xtime::timestamp_t &timestamp) {
             const size_t buffer_size = price_type == PRICE_OHLCV ? CANDLE_WITH_VOLUME_BUFFER_SIZE :
                 price_type == PRICE_OHLC ? CANDLE_WITHOUT_VOLUME_BUFFER_SIZE : ONLY_ONE_PRICE_BUFFER_SIZE;
-            //char *buffer = new char[buffer_size];
+
             increase_write_buffer_size(buffer_size);
             char *buffer = write_buffer.get();
             int err_convert = convert_candles_to_buffer(candles, buffer, buffer_size);
@@ -661,7 +663,20 @@ namespace xquotes_history {
             if(is_use_dictionary) err_write = write_compressed_subfile(xtime::get_day(timestamp), buffer, buffer_size);
             else err_write = write_subfile(xtime::get_day(timestamp), buffer, buffer_size);
 
-            //delete [] buffer;
+            /* если ошибки записи нет, перечитаем фрагмент (если он в памяти),
+             * который мы только что записали
+             */
+            if(err_convert == OK) {
+                size_t ind_prices = 0;
+                while(ind_prices < candles_array_days.size()) {
+                    if(xtime::get_day(candles_array_days[ind_prices][0].timestamp) == xtime::get_day(timestamp)) {
+                        read_candles(candles_array_days[ind_prices], xtime::get_day(timestamp), xtime::get_first_timestamp_day(timestamp));
+                        break;
+                    }
+                    ind_prices++;
+                }
+            }
+
             return err_convert != OK ? err_convert : err_write;
         }
 
