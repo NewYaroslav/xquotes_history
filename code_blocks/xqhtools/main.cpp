@@ -9,7 +9,7 @@
 #include <ctime>
 #include <stdio.h>
 
-#define ZQHTOOLS_VERSION "1.6"
+#define ZQHTOOLS_VERSION "1.7"
 
 enum {
     XQHTOOLS_CSV_TO_HEX = 0,
@@ -19,6 +19,7 @@ enum {
     XQHTOOLS_QHS_DATE,
     XQHTOOLS_ZSTD_TRAIN,
     XQHTOOLS_VERSION,
+    XQHTOOLS_SUBFILE_CRC64,
 };
 
 // получаем команду из командной строки
@@ -37,6 +38,9 @@ int qhs_date(const int argc, char *argv[]);
 int zstd_train(const int argc, char *argv[]);
 // слияние
 int merge_date(const int argc, char *argv[]);
+// рассчет crc64
+int calc_subfile_crc64(const int argc, char *argv[]);
+//
 void parse(std::string value, std::vector<std::string> &elemet_list);
 
 int main(int argc, char *argv[]) {
@@ -61,6 +65,9 @@ int main(int argc, char *argv[]) {
     } else
     if(cmd == XQHTOOLS_QHS_MERGE) {
         return merge_date(argc, argv);
+    } else
+    if(cmd == XQHTOOLS_SUBFILE_CRC64) {
+        return calc_subfile_crc64(argc, argv);
     }
     return 0;
 }
@@ -79,6 +86,7 @@ int get_cmd(int &cmd, const int argc, char *argv[]) {
     bool is_raw_storage = false;
     bool is_paths_raw_storages = false;
     bool is_path_out_raw_storage = false;
+    bool is_crc64 = false;
     for(int i = 1; i < argc; ++i) {
         std::string value = std::string(argv[i]);
         if(value == "train") is_train = true;
@@ -91,6 +99,8 @@ int get_cmd(int &cmd, const int argc, char *argv[]) {
         else
         if(value == "convert_storage") is_convert_storage = true;
         else
+        if(value == "subfile_crc64") is_crc64 = true;
+        else
         if(value == "path_hex") is_hex = true;
         else
         if(value == "path_csv") is_csv = true;
@@ -98,8 +108,6 @@ int get_cmd(int &cmd, const int argc, char *argv[]) {
         if(value == "path_storage") is_storage = true;
         else
         if(value == "path_raw_storage") is_raw_storage = true;
-        else
-        if(value == "path_raw") is_raw = true;
         else
         if(value == "path_raw") is_raw = true;
         else
@@ -112,12 +120,15 @@ int get_cmd(int &cmd, const int argc, char *argv[]) {
             return XQHTOOLS_VERSION;
         }
     }
-
+    if(is_crc64 && (!is_date || (!is_storage && !is_raw_storage))) {
+        std::cout << "error! no date or file specified" << std::endl;
+        return -1;
+    } else
     if(is_train && !is_raw && !is_raw_storage) {
         std::cout << "error! no file specified" << std::endl;
         return -1;
     } else
-    if(is_date && !is_storage) {
+    if((is_date && !is_crc64) && !is_storage) {
         std::cout << "error! no file specified" << std::endl;
         return -1;
     } else
@@ -128,6 +139,9 @@ int get_cmd(int &cmd, const int argc, char *argv[]) {
     if(is_merge && is_hex) {
         std::cout << "error! hex file merging is not supported" << std::endl;
         return -1;
+    } else
+    if(is_crc64 && is_date && (is_raw_storage || is_storage)) {
+        cmd = XQHTOOLS_SUBFILE_CRC64;
     } else
     if(is_train && (is_raw_storage || is_raw)) {
         cmd = XQHTOOLS_ZSTD_TRAIN;
@@ -855,6 +869,36 @@ int merge_date(const int argc, char *argv[]) {
         }
     }
     std::cout << std::endl;
+    return 0;
+}
+
+int calc_subfile_crc64(const int argc, char *argv[]) {
+    std::string path_storage;
+    xtime::timestamp_t date_timestamp = 0;
+    for(int i = 1; i < argc; ++i) {
+        std::string value = std::string(argv[i]);
+        if((value == "path_raw_storage") && (i + 1) < argc) {
+            path_storage = std::string(argv[i + 1]);
+        } else
+        if((value == "path_storage") && (i + 1) < argc) {
+            path_storage = std::string(argv[i + 1]);
+        } else
+        if((value == "date") && (i + 1) < argc) {
+            xtime::convert_str_to_timestamp(std::string(argv[i + 1]), date_timestamp);
+        }
+    }
+    if(path_storage.size() == 0) {
+        std::cout << "error! no path or directory specified" << std::endl;
+        return -1;
+    }
+    if(date_timestamp == 0) {
+        std::cout << "error! date timestamp == 0" << std::endl;
+        return -1;
+    }
+    xquotes_storage::Storage storage(path_storage);
+    const xquotes_common::key_t key_subfile = xtime::get_day(date_timestamp);
+    long long crc = storage.get_crc64_subfile(key_subfile);
+    std::cout << "subfile " << key_subfile << " date: " << xtime::get_str_date_time(date_timestamp) << " crc64: " << crc << std::endl;
     return 0;
 }
 

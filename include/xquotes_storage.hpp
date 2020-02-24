@@ -65,7 +65,6 @@ namespace xquotes_storage {
         bool is_mem_dict_file = false;                  /**< Флаг использования выделения памяти под словарь */
         note_t file_note = 0;                           /**< Заметка файла */
 
-
         std::unique_ptr<char[]> compressed_file_buffer;   /**< Буфер для записи */
         size_t compressed_file_buffer_size = 0;           /**< Размер буфера для записи */
 
@@ -366,15 +365,48 @@ namespace xquotes_storage {
             return OK;
         }
 
+        /* добавляем рассчет crc64 */
+
+        const long long poly = 0xC96C5795D7870F42;
+        long long crc64_table[256];
+
+        void crc64_generate_table() {
+            for(uint32_t i = 0; i < 256; ++i) {
+                long long crc = i;
+                for(uint32_t j = 0; j < 8; ++j) {
+                    if(crc & 1) {
+                        crc >>= 1;
+                        crc ^= poly;
+                    } else {
+                        crc >>= 1;
+                    }
+                }
+                crc64_table[i] = crc;
+            }
+        }
+
+        long long calculate_crc64(long long crc, const unsigned char* stream, uint32_t n) {
+            for(uint32_t i = 0; i < n; ++i) {
+                unsigned char index = stream[i] ^ crc;
+                long long lookup = crc64_table[index];
+                crc >>= 8;
+                crc ^= lookup;
+            }
+            return crc;
+        }
+
         public:
 
-        Storage() {};
+        Storage() {
+            crc64_generate_table();
+        };
 
         /** \brief Инициализировать класс хранилища
          * \param path путь к файлу с данными
          * \param dictionary_file путь к файлу словаря для архивирования данных. По умолчанию не используется
          */
         Storage(const std::string &path, const std::string &dictionary_file = "") {
+            crc64_generate_table();
             file_name = path;
             if(!bf::check_file(path)) {
                 if(!create_file(path)) return;
@@ -399,6 +431,7 @@ namespace xquotes_storage {
          * \param dictionary_buffer_size размер буфера словаря
          */
         Storage(const std::string &path, const char *dictionary_buffer, const size_t &dictionary_buffer_size) {
+            crc64_generate_table();
             file_name = path;
             if(!bf::check_file(path)) {
                 if(!create_file(path)) return;
@@ -904,6 +937,24 @@ namespace xquotes_storage {
             size_t ind = (size_t)(subfiles_it - subfiles.begin());
             subfiles[ind].key = new_key;
             sort_subfiles(subfiles);
+        }
+
+        /** \brief Получить crc64 код подфайла
+         *
+         * \param key Ключ подфайла
+         * \return crc64 код
+         */
+        long long get_crc64_subfile(const key_t key) {
+            std::unique_ptr<char[]> read_buffer;
+            size_t read_buffer_size = 0;
+            unsigned long buffer_size = 0;
+            int err = read_subfile(key,
+                read_buffer,
+                read_buffer_size,
+                buffer_size);
+            if(err != OK || buffer_size == 0) return 0;
+            const char *buffer = read_buffer.get();
+            return calculate_crc64(0, (const unsigned char*)buffer, buffer_size);
         }
 
         virtual ~Storage() {
