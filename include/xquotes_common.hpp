@@ -30,6 +30,7 @@
 #ifndef XQUOTES_COMMON_HPP_INCLUDED
 #define XQUOTES_COMMON_HPP_INCLUDED
 
+#include <iostream>
 #include <cstdlib>
 #include <cmath>
 #include "xtime.hpp"
@@ -151,7 +152,7 @@ namespace xquotes_common {
         DATA_SIZE_ERROR = -13,          ///< Ошибка размера данных
         FILE_CANNOT_OPENED = -15,       ///< Файл не может быть открыт
         FILE_CANNOT_RENAMED = -16,       ///< Файл не может быть переименован
-        FILE_CANNOT_REMOVED = -17,       ///< Файл не может быть переименован
+        FILE_CANNOT_REMOVED = -17,       ///< Файл не может быть удален
         FILE_NOT_OPENED = -18,
         NO_SUBFILES = -19,
         SUBFILES_NOT_FOUND = -20,

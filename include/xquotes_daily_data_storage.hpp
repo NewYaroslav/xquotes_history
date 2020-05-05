@@ -394,6 +394,14 @@ namespace xquotes_daily_data_storage {
             return check_subfile(xtime::get_day(timestamp));
         }
 
+        /** \brief Удалить подфайл по метке времени
+         * \param timestamp метка времени
+         * \return Вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
+         */
+        int delete_timestamp(const xtime::timestamp_t timestamp) {
+            return delete_subfile(xtime::get_day(timestamp));
+        }
+
         /** \brief Узнать максимальную и минимальную метку времени подфайлов
          * \param min_timestamp Метка времени в начале дня начала исторических данных
          * \param max_timestamp Метка времени в начале дня конца исторических данных

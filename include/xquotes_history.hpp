@@ -683,7 +683,7 @@ namespace xquotes_history {
         /** \brief Получить свечу по временной метке
          * \param candle Свеча/бар
          * \param timestamp метка времени начала свечи
-         * \param optimization оптимизация.
+         * \param optimization Оптимизация.
          * Для отключения указать WITHOUT_OPTIMIZATION.
          * По умолчанию включена оптимизация последовательного считывания минут OPTIMIZATION_SEQUENTIAL_READING
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
@@ -753,8 +753,19 @@ namespace xquotes_history {
          * \param timestamp метка времени
          * \return вернет true, если метка времени существует
          */
-        bool check_timestamp(const xtime::timestamp_t &timestamp) {
+        bool check_timestamp(const xtime::timestamp_t timestamp) {
             return check_subfile(xtime::get_day(timestamp));
+        }
+
+        /** \brief Удалить данные за день по метке времени
+         *
+         * \param timestamp метка времени
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
+         */
+        int delete_day(const xtime::timestamp_t timestamp) {
+
+            int err = delete_subfile(xtime::get_day(timestamp));
+            return err;
         }
 
         /** \brief Проверить бинарный опцион

@@ -72,7 +72,7 @@ namespace xquotes_storage {
          * \details Данная функция работает только на увеличение размера буффера
          * \param new_size новый размер
          */
-        void increase_compressed_file_buffer_size(const size_t &new_size) {
+        void increase_compressed_file_buffer_size(const size_t new_size) {
             if(new_size > compressed_file_buffer_size) {
                 compressed_file_buffer = std::unique_ptr<char[]>(new char[new_size]);
                 compressed_file_buffer_size = new_size;
@@ -86,7 +86,7 @@ namespace xquotes_storage {
          * \details Данная функция работает только на увеличение размера буффера
          * \param new_size новый размер
          */
-        void increase_input_subfile_buffer_size(const size_t &new_size) {
+        void increase_input_subfile_buffer_size(const size_t new_size) {
             if(new_size > input_subfile_buffer_size) {
                 input_subfile_buffer = std::unique_ptr<char[]>(new char[new_size]);
                 input_subfile_buffer_size = new_size;
@@ -134,7 +134,7 @@ namespace xquotes_storage {
             }
         }
 
-        Subfile *find_subfiles(const key_t &key, std::vector<Subfile> &_subfiles) const {
+        Subfile *find_subfiles(const key_t key, std::vector<Subfile> &_subfiles) const {
             if(_subfiles.size() == 0) return NULL;
             auto subfiles_it = std::lower_bound(
                 _subfiles.begin(),
@@ -152,7 +152,7 @@ namespace xquotes_storage {
             return NULL;
         }
 
-        void add_or_update_subfiles(const key_t &key, const unsigned long &size, const link_t &link, std::vector<Subfile> &_subfiles) {
+        void add_or_update_subfiles(const key_t key, const unsigned long size, const link_t link, std::vector<Subfile> &_subfiles) {
             if(_subfiles.size() == 0) {
                 _subfiles.push_back(Subfile(key, size, link));
             } else {
@@ -190,7 +190,7 @@ namespace xquotes_storage {
             return temp;
         }
 
-        inline void seek(const unsigned long &offset, const std::ios::seekdir &origin, std::fstream &_file) {
+        inline void seek(const unsigned long offset, const std::ios::seekdir &origin, std::fstream &_file) {
             _file.clear();
             _file.seekg(offset, origin);
             _file.clear();
@@ -278,7 +278,7 @@ namespace xquotes_storage {
             is_subfile_found = true;
         }
 
-        int write_subfile_to_beg(const key_t &key, const char *buffer, const unsigned long &length) {
+        int write_subfile_to_beg(const key_t key, const char *buffer, const unsigned long length) {
             seek(0, std::ios::beg, file);
             unsigned long temp = 0;
             file.write(reinterpret_cast<char *>(&temp), sizeof(temp));
@@ -289,7 +289,7 @@ namespace xquotes_storage {
             return OK;
         }
 
-        int write_subfile_to_end(const key_t &key, const char *buffer, const unsigned long &length) {
+        int write_subfile_to_end(const key_t key, const char *buffer, const unsigned long length) {
             Subfile *subfile_max_link = get_max_link(subfiles);
             if(subfile_max_link == NULL) return INVALID_PARAMETER;
             unsigned long link = subfile_max_link->link + subfile_max_link->size;
@@ -301,7 +301,7 @@ namespace xquotes_storage {
             return OK;
         }
 
-        int rewrite_subfile(const key_t &key, const Subfile *subfile, const char *buffer, const unsigned long &length) {
+        int rewrite_subfile(const key_t key, const Subfile *subfile, const char *buffer, const unsigned long length) {
             if(subfile->size != length) {
                 if(is_subfile_found && last_key_found == key) {
                     is_subfile_found = false;
@@ -315,9 +315,11 @@ namespace xquotes_storage {
                     ++seed;
                 }
                 if(!create_file(temp_file)) return FILE_CANNOT_OPENED;
-                // создаем файл и пишем в него
+
+                /* создаем файл и пишем в него */
                 std::fstream new_file = std::fstream(temp_file, std::ios_base::binary | std::ios::in | std::ios::out | std::ios::ate);
                 if(!new_file) return FILE_CANNOT_OPENED;
+
                 std::vector<Subfile> new_subfiles;
                 unsigned long new_file_link = sizeof(unsigned long);
                 for(size_t i = 0; i < subfiles.size(); ++i) {
@@ -351,11 +353,20 @@ namespace xquotes_storage {
                         new_file_link += length;
                     }
                 }
+
+                /* запишем заголовок в новый файл */
                 write_header(new_file, new_subfiles);
+
+                /* закромем все файлы и обнулим флаг открытия файла */
                 new_file.close();
                 file.close();
                 is_file_open = false;
-                if(remove(file_name.c_str()) != 0) return FILE_CANNOT_REMOVED;
+
+                int err = 0;
+                if((err = remove(file_name.c_str())) != 0) {
+                    //std::cout << "xquotes storage error, what: remove(" << file_name << "), code: " << err << std::endl;
+                    return FILE_CANNOT_REMOVED;
+                }
                 if(rename(temp_file.c_str(), file_name.c_str()) != 0) return FILE_CANNOT_RENAMED;
                 if(!open(file_name)) return FILE_CANNOT_OPENED;
             } else {
@@ -430,7 +441,7 @@ namespace xquotes_storage {
          * \param dictionary_buffer указатель на буфер словаря
          * \param dictionary_buffer_size размер буфера словаря
          */
-        Storage(const std::string &path, const char *dictionary_buffer, const size_t &dictionary_buffer_size) {
+        Storage(const std::string &path, const char *dictionary_buffer, const size_t dictionary_buffer_size) {
             crc64_generate_table();
             file_name = path;
             if(!bf::check_file(path)) {
@@ -447,7 +458,7 @@ namespace xquotes_storage {
          * \param dictionary_buffer_size размер буфера словаря
          * \return вернет true, если инициализация прошла успешно
          */
-        bool init(const std::string &path, const char *dictionary_buffer, const size_t &dictionary_buffer_size) {
+        bool init(const std::string &path, const char *dictionary_buffer, const size_t dictionary_buffer_size) {
             if(is_file_open) return false;
             file_name = path;
             if(!bf::check_file(path)) {
@@ -477,7 +488,7 @@ namespace xquotes_storage {
          * \param dictionary_buffer указатель на буфер словаря
          * \param dictionary_buffer_size размер буфера словаря
          */
-        void set_dictionary(const char *dictionary_buffer, const size_t &dictionary_buffer_size) {
+        void set_dictionary(const char *dictionary_buffer, const size_t dictionary_buffer_size) {
             dictionary_file_buffer = (char*)dictionary_buffer;
             dictionary_file_size = dictionary_buffer_size;
         }
@@ -488,7 +499,7 @@ namespace xquotes_storage {
          * \param size размер подфайла
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int get_subfile_size(const key_t &key, unsigned long &size) {
+        int get_subfile_size(const key_t key, unsigned long &size) {
             if(subfiles.size() == 0) return NO_SUBFILES;
             if(is_subfile_found && last_key_found == key) {
                 size = last_size_found;
@@ -509,7 +520,7 @@ namespace xquotes_storage {
          * \param buffer_size сюда будет помещен размер буфера (подфайла)
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int read_subfile(const key_t &key, char *&buffer, unsigned long &buffer_size) {
+        int read_subfile(const key_t key, char *&buffer, unsigned long &buffer_size) {
             if(!is_file_open) return FILE_NOT_OPENED;
             // если ранее мы уже нашли подфайл
             if(is_subfile_found && last_key_found == key) {
@@ -542,7 +553,7 @@ namespace xquotes_storage {
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         int read_subfile(
-                const key_t &key,
+                const key_t key,
                 std::unique_ptr<char[]> &read_buffer,
                 size_t &read_buffer_size,
                 unsigned long &buffer_size) {
@@ -584,7 +595,7 @@ namespace xquotes_storage {
          * \param buffer_size размер буфера (размер подфайла)
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int write_subfile(const key_t &key, const char *buffer, const unsigned long &buffer_size) {
+        int write_subfile(const key_t key, const char *buffer, const unsigned long &buffer_size) {
             if(!is_file_open) return FILE_NOT_OPENED;
             if(subfiles.size() == 0) {
                 return write_subfile_to_beg(key, buffer, buffer_size);
@@ -602,7 +613,7 @@ namespace xquotes_storage {
          * \param key ключ подфайла
          * \return вернет true если файл найден
          */
-        bool check_subfile(const key_t &key) {
+        bool check_subfile(const key_t key) {
             if(subfiles.size() == 0) return false;
             if(is_subfile_found && last_key_found == key) return true;
             const Subfile *subfile = find_subfiles(key, subfiles);
@@ -620,7 +631,7 @@ namespace xquotes_storage {
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         int get_subfile_list(
-                const key_t &key,
+                const key_t key,
                 std::vector<key_t>& list_subfile,
                 const int &num_subfile,
                 bool (*f)(const key_t &key) = NULL,
@@ -680,7 +691,7 @@ namespace xquotes_storage {
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         int write_compressed_subfile(
-                const key_t &key,
+                const key_t key,
                 const char *buffer,
                 const unsigned long &buffer_size,
                 int compress_level = ZSTD_maxCLevel()) {
@@ -723,7 +734,7 @@ namespace xquotes_storage {
          * \param buffer_size сюда будет помещен размер подфайла после декомпресси
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int read_compressed_subfile(const key_t &key, char *&buffer, unsigned long& buffer_size) {
+        int read_compressed_subfile(const key_t key, char *&buffer, unsigned long& buffer_size) {
             if(!is_file_open) return FILE_NOT_OPENED;
             if(subfiles.size() == 0) return NO_SUBFILES;
             //char *input_subfile_buffer = NULL;
@@ -792,7 +803,7 @@ namespace xquotes_storage {
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
         int read_compressed_subfile(
-                const key_t &key,
+                const key_t key,
                 std::unique_ptr<char[]> &read_buffer,
                 size_t &read_buffer_size,
                 unsigned long& buffer_size) {
@@ -903,7 +914,7 @@ namespace xquotes_storage {
          * \param ind индекс подфайла
          * \return ключ подфайла
          */
-        inline key_t get_key_subfiles(const int &ind) const {
+        inline key_t get_key_subfiles(const int ind) const {
             return subfiles[ind].key;
         }
 
@@ -924,7 +935,7 @@ namespace xquotes_storage {
          * \param new_key новый ключ подфайла
          * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
          */
-        int rename_subfile(const key_t &key, const key_t &new_key) {
+        int rename_subfile(const key_t key, const key_t new_key) {
             if(subfiles.size() == 0) return DATA_NOT_AVAILABLE;
             auto subfiles_it = std::lower_bound(
                 subfiles.begin(),
@@ -937,6 +948,27 @@ namespace xquotes_storage {
             size_t ind = (size_t)(subfiles_it - subfiles.begin());
             subfiles[ind].key = new_key;
             sort_subfiles(subfiles);
+            return OK;
+        }
+
+        /** \brief Удалить подфайл
+         * \param key старый ключ подфайла
+         * \return вернет 0 в случае успеха, иначе см. код ошибок в xquotes_common.hpp
+         */
+        int delete_subfile(const key_t key) {
+            if(subfiles.size() == 0) return DATA_NOT_AVAILABLE;
+            auto subfiles_it = std::lower_bound(
+                subfiles.begin(),
+                subfiles.end(),
+                key,
+                [](const Subfile &lhs, const key_t &key) {
+                return lhs.key < key;
+            });
+            if(subfiles_it == subfiles.end()) return DATA_NOT_AVAILABLE;
+            subfiles.erase(subfiles_it);
+            sort_subfiles(subfiles);
+            write_header(file, subfiles);
+            return OK;
         }
 
         /** \brief Получить crc64 код подфайла

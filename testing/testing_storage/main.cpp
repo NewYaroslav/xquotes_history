@@ -41,28 +41,37 @@ void check_test_data(xquotes_storage::Storage &iStorage, unsigned long long key,
 int main(int argc, char *argv[]) {
     std::cout << "start!" << std::endl;
 
-    xquotes_storage::Storage iStorage("test.dat");
-
     unsigned long long key0 = 0x0; unsigned long size0 = 8;
     unsigned long long key1 = 0x1; unsigned long size1 = 16;
     unsigned long long key2 = 0x2; unsigned long size2 = 32;
     unsigned long long key3 = 0x3; unsigned long size3 = 64;
 
-    std::cout << "step 1" << std::endl;
-    check_test_data(iStorage, key0, size0);
-    write_test_data(iStorage, key0, size0);
-    check_test_data(iStorage, key0, size0);
-    std::cout << "step 2" << std::endl;
-    write_test_data(iStorage, key1, size1);
-    check_test_data(iStorage, key1, size1);
-    std::cout << "step 3" << std::endl;
-    write_test_data(iStorage, key2, size2);
-    check_test_data(iStorage, key2, size2);
-    std::cout << "step 4" << std::endl;
-    write_test_data(iStorage, key0, size2);
-    check_test_data(iStorage, key0, size2);
-    std::cout << "step 5" << std::endl;
-    check_test_data(iStorage, key1, size1);
+    {
+        xquotes_storage::Storage iStorage("test.dat");
+        std::cout << "step 1" << std::endl;
+        check_test_data(iStorage, key0, size0);
+        write_test_data(iStorage, key0, size0);
+        check_test_data(iStorage, key0, size0);
+        std::cout << "step 2" << std::endl;
+        write_test_data(iStorage, key1, size1);
+        check_test_data(iStorage, key1, size1);
+        std::cout << "step 3" << std::endl;
+        write_test_data(iStorage, key2, size2);
+        check_test_data(iStorage, key2, size2);
+        std::cout << "step 4" << std::endl;
+        write_test_data(iStorage, key0, size2);
+        check_test_data(iStorage, key0, size2);
+        std::cout << "step 5" << std::endl;
+        check_test_data(iStorage, key1, size1);
+        iStorage.delete_subfile(key1);
+        std::cout << "step 6" << std::endl;
+        check_test_data(iStorage, key1, size1);
+    }
+    {
+        xquotes_storage::Storage iStorage("test.dat");
+        std::cout << "step 7" << std::endl;
+        check_test_data(iStorage, key1, size1);
+    }
     system("pause");
     return 0;
 }
