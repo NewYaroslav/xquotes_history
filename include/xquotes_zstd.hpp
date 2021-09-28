@@ -32,7 +32,7 @@
 
 #include "xquotes_storage.hpp"
 #include "banana_filesystem.hpp"
-#include "dictBuilder/zdict.h"
+#include "zdict.h"
 #include "zstd.h"
 #include <cstring>
 

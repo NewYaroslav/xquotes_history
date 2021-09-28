@@ -30,7 +30,7 @@
 
 #include "xquotes_common.hpp"
 #include "banana_filesystem.hpp"
-#include "xtime.hpp"
+#include "ztime.hpp"
 #include <limits>
 #include <algorithm>
 #include <random>
@@ -50,7 +50,7 @@ namespace xquotes_files {
      * \return имя файла
      */
     std::string get_file_name_from_date(unsigned long long timestamp) {
-        xtime::DateTime iTime(timestamp);
+        ztime::DateTime iTime(timestamp);
         std::string file_name =
             std::to_string(iTime.year) + "_" +
             std::to_string(iTime.month) + "_" +
@@ -132,10 +132,10 @@ namespace xquotes_files {
     int write_bin_file_u32_1x(
             const std::string file_name,
             const std::vector<double> &prices,
-            const std::vector<xtime::timestamp_t> &times) {
+            const std::vector<ztime::timestamp_t> &times) {
         if(prices.size() != times.size() || prices.size() == 0) return INVALID_ARRAY_LENGH;
         std::ofstream file(file_name, std::ios_base::binary);
-        xtime::timestamp_t timestamp = xtime::get_first_timestamp_day(times[0]);
+        ztime::timestamp_t timestamp = ztime::get_first_timestamp_day(times[0]);
         size_t times_ind = 0;
         for(size_t i = 0; i < MINUTES_IN_DAY; ++i) {
             if(times_ind >= times.size()) {
@@ -148,7 +148,7 @@ namespace xquotes_files {
             if(times[times_ind] > timestamp) {
                 write_null_u32(file);
             }
-            timestamp += xtime::SECONDS_IN_MINUTE;
+            timestamp += ztime::SECONDS_IN_MINUTE;
         }
         file.close();
         return OK;
@@ -166,7 +166,7 @@ namespace xquotes_files {
     int write_bin_file_u32_4x(const std::string file_name, const T &candles) {
         if(candles.size() == 0) return INVALID_ARRAY_LENGH;
         std::ofstream file(file_name, std::ios_base::binary);
-        xtime::timestamp_t timestamp = xtime::get_first_timestamp_day(candles[0].timestamp);
+        ztime::timestamp_t timestamp = ztime::get_first_timestamp_day(candles[0].timestamp);
         size_t ind = 0;
         for(size_t i = 0; i < MINUTES_IN_DAY; ++i) {
             if(ind >= candles.size()) {
@@ -179,7 +179,7 @@ namespace xquotes_files {
             if(candles[ind].timestamp > timestamp) {
                 write_null_candle_u32_4x(file);
             }
-            timestamp += xtime::SECONDS_IN_MINUTE;
+            timestamp += ztime::SECONDS_IN_MINUTE;
         } // for i
         file.close();
         return OK;
@@ -197,7 +197,7 @@ namespace xquotes_files {
     int write_bin_file_u32_5x(const std::string file_name, const T &candles) {
         if(candles.size() == 0) return INVALID_ARRAY_LENGH;
         std::ofstream file(file_name, std::ios_base::binary);
-        xtime::DateTime iTime(candles[0].timestamp);
+        ztime::DateTime iTime(candles[0].timestamp);
         iTime.set_beg_day();
         unsigned long long timestamp = iTime.get_timestamp();
         size_t ind = 0;
@@ -212,7 +212,7 @@ namespace xquotes_files {
             if(candles[ind].timestamp > timestamp) {
                 write_null_candle_u32_5x(file);
             }
-            timestamp += xtime::SECONDS_IN_MINUTE;
+            timestamp += ztime::SECONDS_IN_MINUTE;
         } // for i
         file.close();
         return OK;
@@ -227,7 +227,7 @@ namespace xquotes_files {
      */
     int read_bin_file_u32_1x(
             const std::string file_name,
-            xtime::timestamp_t start_timestamp,
+            ztime::timestamp_t start_timestamp,
             std::vector<double> &prices,
             std::vector<unsigned long long> &times) {
         std::ifstream file(file_name, std::ios_base::binary);
@@ -235,7 +235,7 @@ namespace xquotes_files {
         for(int i = 0; i < MINUTES_IN_DAY; ++i) {
             prices.push_back(read_u32(file));
             times.push_back(start_timestamp);
-            start_timestamp += xtime::SECONDS_IN_MINUTE;
+            start_timestamp += ztime::SECONDS_IN_MINUTE;
         }
         file.close();
         return OK;
@@ -264,7 +264,7 @@ namespace xquotes_files {
      * \return вернет 0 в случае успешного завершения
      */
     template <typename T>
-    int read_bin_file_u32_4x(const std::string file_name, xtime::timestamp_t timestamp, T &candles) {
+    int read_bin_file_u32_4x(const std::string file_name, ztime::timestamp_t timestamp, T &candles) {
         std::ifstream file(file_name, std::ios_base::binary);
         if(!file) return FILE_CANNOT_OPENED;
         for(int i = 0; i < MINUTES_IN_DAY; ++i) {
@@ -273,7 +273,7 @@ namespace xquotes_files {
             candles[i].low = read_u32(file);
             candles[i].close = read_u32(file);
             candles[i].timestamp = timestamp;
-            timestamp += xtime::SECONDS_IN_MINUTE;
+            timestamp += ztime::SECONDS_IN_MINUTE;
         }
         file.close();
         return OK;
@@ -286,7 +286,7 @@ namespace xquotes_files {
      * \return вернет 0 в случае успешного завершения
      */
     template <typename T>
-    int read_bin_file_u32_5x(const std::string file_name, xtime::timestamp_t timestamp, T &candles) {
+    int read_bin_file_u32_5x(const std::string file_name, ztime::timestamp_t timestamp, T &candles) {
         std::ifstream file(file_name, std::ios_base::binary);
         if(!file) return FILE_CANNOT_OPENED;
         for(int i = 0; i < MINUTES_IN_DAY; ++i) {
@@ -296,7 +296,7 @@ namespace xquotes_files {
             candles[i].close = read_u32(file);
             candles[i].volume = read_u32(file);
             candles[i].timestamp = timestamp;
-            timestamp += xtime::SECONDS_IN_MINUTE;
+            timestamp += ztime::SECONDS_IN_MINUTE;
         }
         file.close();
         return OK;
@@ -312,11 +312,11 @@ namespace xquotes_files {
     int get_beg_end_timestamp(
             const std::vector<std::string> &file_list,
             const std::string file_extension,
-            xtime::timestamp_t &beg_timestamp,
-            xtime::timestamp_t &end_timestamp) {
+            ztime::timestamp_t &beg_timestamp,
+            ztime::timestamp_t &end_timestamp) {
         if(file_list.size() == 0) return INVALID_PARAMETER;
-        beg_timestamp = std::numeric_limits<xtime::timestamp_t>::max();
-        end_timestamp = std::numeric_limits<xtime::timestamp_t>::min();
+        beg_timestamp = std::numeric_limits<ztime::timestamp_t>::max();
+        end_timestamp = std::numeric_limits<ztime::timestamp_t>::min();
         for(size_t i = 0; i < file_list.size(); i++) {
             std::vector<std::string> path_file;
             bf::parse_path(file_list[i], path_file);
@@ -326,9 +326,9 @@ namespace xquotes_files {
                 std::size_t first_pos = file_name.find(file_extension);
                 if(first_pos == std::string::npos)
                 continue;
-                xtime::timestamp_t time;
+                ztime::timestamp_t time;
                 std::string word = file_name.substr(0, first_pos);
-                if(xtime::convert_str_to_timestamp(file_name.substr(0, first_pos), time)) {
+                if(ztime::convert_str_to_timestamp(file_name.substr(0, first_pos), time)) {
                     if(beg_timestamp > time) beg_timestamp = time;
                     if(end_timestamp < time) end_timestamp = time;
                 }
@@ -348,8 +348,8 @@ namespace xquotes_files {
     int get_beg_end_timestamp_for_path(
             const std::string path,
             const std::string file_extension,
-            xtime::timestamp_t &beg_timestamp,
-            xtime::timestamp_t &end_timestamp) {
+            ztime::timestamp_t &beg_timestamp,
+            ztime::timestamp_t &end_timestamp) {
         std::vector<std::string> file_list;
         bf::get_list_files(path, file_list, true);
         return get_beg_end_timestamp(file_list, file_extension, beg_timestamp, end_timestamp);
@@ -365,16 +365,16 @@ namespace xquotes_files {
     int get_beg_end_timestamp_for_paths(
             const std::vector<std::string> paths,
             const std::string file_extension,
-            xtime::timestamp_t &beg_timestamp,
-            xtime::timestamp_t &end_timestamp) {
+            ztime::timestamp_t &beg_timestamp,
+            ztime::timestamp_t &end_timestamp) {
         bool is_init = false;
-        beg_timestamp = std::numeric_limits<xtime::timestamp_t>::min();
-        end_timestamp = std::numeric_limits<xtime::timestamp_t>::max();
+        beg_timestamp = std::numeric_limits<ztime::timestamp_t>::min();
+        end_timestamp = std::numeric_limits<ztime::timestamp_t>::max();
         for(size_t i = 0; i < paths.size(); ++i) {
             std::vector<std::string> file_list;
             bf::get_list_files(paths[i], file_list, true);
-            xtime::timestamp_t _beg_timestamp;
-            xtime::timestamp_t _end_timestamp;
+            ztime::timestamp_t _beg_timestamp;
+            ztime::timestamp_t _end_timestamp;
             int err = get_beg_end_timestamp(file_list, file_extension, _beg_timestamp, _end_timestamp);
             if(err == OK) {
                 if(beg_timestamp < _beg_timestamp) beg_timestamp = _beg_timestamp;
@@ -402,14 +402,14 @@ namespace xquotes_files {
             const std::string path,
             const std::string symbol,
             const std::string file_extension,
-            const xtime::timestamp_t real_timestamp,
+            const ztime::timestamp_t real_timestamp,
             const int max_days,
-            xtime::timestamp_t &beg_timestamp,
-            xtime::timestamp_t &end_timestamp,
+            ztime::timestamp_t &beg_timestamp,
+            ztime::timestamp_t &end_timestamp,
             bool is_use_day_off = false) {
-        xtime::DateTime iRealTime(real_timestamp);
+        ztime::DateTime iRealTime(real_timestamp);
         iRealTime.set_beg_day();
-        unsigned long long timestamp = iRealTime.get_timestamp() - xtime::SECONDS_IN_DAY;
+        unsigned long long timestamp = iRealTime.get_timestamp() - ztime::SECONDS_IN_DAY;
 
         beg_timestamp = std::numeric_limits<unsigned long long>::max();
         end_timestamp = std::numeric_limits<unsigned long long>::min();
@@ -418,9 +418,9 @@ namespace xquotes_files {
         const int MAX_ERR_DAYS = 30;
         while(true) {
             if(!is_use_day_off) { // пропускаем выходной день
-                int wday = xtime::get_weekday(timestamp);
-                if(wday == xtime::SUN || wday == xtime::SAT) {
-                    timestamp -= xtime::SECONDS_IN_DAY;
+                int wday = ztime::get_weekday(timestamp);
+                if(wday == ztime::SUN || wday == ztime::SAT) {
+                    timestamp -= ztime::SECONDS_IN_DAY;
                     continue;
                 }
             }
@@ -434,7 +434,7 @@ namespace xquotes_files {
                     beg_timestamp = timestamp;
                     return OK;
                 }
-                timestamp -= xtime::SECONDS_IN_DAY;
+                timestamp -= ztime::SECONDS_IN_DAY;
             } else {
                 err_days++;
                 if(err_days == MAX_ERR_DAYS) return DATA_NOT_AVAILABLE;

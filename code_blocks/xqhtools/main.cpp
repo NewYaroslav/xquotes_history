@@ -9,7 +9,7 @@
 #include <ctime>
 #include <stdio.h>
 
-#define ZQHTOOLS_VERSION "1.7"
+#define ZQHTOOLS_VERSION "1.8"
 
 enum {
     XQHTOOLS_CSV_TO_HEX = 0,
@@ -233,25 +233,25 @@ int csv_to_hex(const int argc, char *argv[]) {
             time_zone,
             [&](xquotes_csv::Candle candle, bool is_end) {
         static int last_day = -1;
-        static std::array<double, xtime::MINUTES_IN_DAY> price;
+        static std::array<double, ztime::MINUTES_IN_DAY> price;
         static std::vector<xquotes_common::Candle> candles;
-        static xtime::timestamp_t file_timestamp = 0;
+        static ztime::timestamp_t file_timestamp = 0;
 
         /* Торговые серверы ДЦ Альпари до 1 мая 2011 работали по СЕТ (центрально-европейское время),
          * после чего перешли на ЕЕТ (восточно- европейское время).
          */
         if(is_alpari) {
-            const xtime::timestamp_t timestamp_alpari = xtime::convert_gmt_to_cet(xtime::get_timestamp(1,5,2011,23,59,59));
-            xtime::timestamp_t timestamp = candle.timestamp;
-            if(timestamp > timestamp_alpari) timestamp = xtime::convert_eet_to_gmt(timestamp);
-            else timestamp = xtime::convert_cet_to_gmt(timestamp);
+            const ztime::timestamp_t timestamp_alpari = ztime::convert_gmt_to_cet(ztime::get_timestamp(1,5,2011,23,59,59));
+            ztime::timestamp_t timestamp = candle.timestamp;
+            if(timestamp > timestamp_alpari) timestamp = ztime::convert_eet_to_gmt(timestamp);
+            else timestamp = ztime::convert_cet_to_gmt(timestamp);
             candle.timestamp = timestamp;
         }
 
-        int minute_day = xtime::get_minute_day(candle.timestamp);
+        int minute_day = ztime::get_minute_day(candle.timestamp);
         if(last_day == -1) { // момент инициализации
-            last_day = xtime::get_day(candle.timestamp);
-            file_timestamp = xtime::get_first_timestamp_day(candle.timestamp);
+            last_day = ztime::get_day(candle.timestamp);
+            file_timestamp = ztime::get_first_timestamp_day(candle.timestamp);
             std::fill(price.begin(), price.end(), 0);
             price[minute_day] = type_price == xquotes_common::PRICE_CLOSE ?
                 candle.close :
@@ -261,11 +261,11 @@ int csv_to_hex(const int argc, char *argv[]) {
                 candle.close;
             candles.push_back(candle);
         } else {
-            int real_day = xtime::get_day(candle.timestamp);
+            int real_day = ztime::get_day(candle.timestamp);
             if(real_day != last_day || is_end) {
                 last_day = real_day;
                 // записываем данные тут
-                std::cout << "date: " << xtime::get_str_date(file_timestamp) << "\r";
+                std::cout << "date: " << ztime::get_str_date(file_timestamp) << "\r";
                 if(
                     type_price == xquotes_history::PRICE_CLOSE ||
                     type_price == xquotes_history::PRICE_LOW ||
@@ -288,7 +288,7 @@ int csv_to_hex(const int argc, char *argv[]) {
                 //...
                 std::fill(price.begin(), price.end(), 0);
                 candles.clear();
-                file_timestamp = xtime::get_first_timestamp_day(candle.timestamp);
+                file_timestamp = ztime::get_first_timestamp_day(candle.timestamp);
             }
             price[minute_day] = candle.close;
             candles.push_back(candle);
@@ -478,37 +478,37 @@ int csv_to_qhs(const int argc, char *argv[]) {
             [&](xquotes_csv::Candle candle, bool is_end) {
         static int last_day = -1;
         static std::vector<xquotes_common::Candle> candles;
-        static xtime::timestamp_t file_timestamp = 0;
+        static ztime::timestamp_t file_timestamp = 0;
 
         /* Торговые серверы ДЦ Альпари до 1 мая 2011 работали по СЕТ (центрально-европейское время),
          * после чего перешли на ЕЕТ (восточно- европейское время).
          */
         if(is_alpari) {
-            const xtime::timestamp_t timestamp_alpari = xtime::convert_gmt_to_cet(xtime::get_timestamp(1,5,2011,23,59,59));
-            xtime::timestamp_t timestamp = candle.timestamp;
-            if(timestamp > timestamp_alpari) timestamp = xtime::convert_eet_to_gmt(timestamp);
-            else timestamp = xtime::convert_cet_to_gmt(timestamp);
+            const ztime::timestamp_t timestamp_alpari = ztime::convert_gmt_to_cet(ztime::get_timestamp(1,5,2011,23,59,59));
+            ztime::timestamp_t timestamp = candle.timestamp;
+            if(timestamp > timestamp_alpari) timestamp = ztime::convert_eet_to_gmt(timestamp);
+            else timestamp = ztime::convert_cet_to_gmt(timestamp);
             candle.timestamp = timestamp;
         }
 
         if(last_day == -1) { // момент инициализации
-            last_day = xtime::get_day(candle.timestamp);
-            file_timestamp = xtime::get_first_timestamp_day(candle.timestamp);
+            last_day = ztime::get_day(candle.timestamp);
+            file_timestamp = ztime::get_first_timestamp_day(candle.timestamp);
             candles.push_back(candle);
         } else {
-            int real_day = xtime::get_day(candle.timestamp);
+            int real_day = ztime::get_day(candle.timestamp);
             if(real_day != last_day || is_end) {
                 last_day = real_day;
                 // записываем данные тут
-                std::cout << "date: " << xtime::get_str_date(file_timestamp) << "\r";
+                std::cout << "date: " << ztime::get_str_date(file_timestamp) << "\r";
                 std::array<xquotes_common::Candle, xquotes_common::MINUTES_IN_DAY> new_candles;
                 for(size_t i = 0; i < candles.size(); ++i) {
-                    new_candles[xtime::get_minute_day(candles[i].timestamp)] = candles[i];
+                    new_candles[ztime::get_minute_day(candles[i].timestamp)] = candles[i];
                 }
                 iQuotesHistory.write_candles(new_candles, file_timestamp);
                 //...
                 candles.clear();
-                file_timestamp = xtime::get_first_timestamp_day(candle.timestamp);
+                file_timestamp = ztime::get_first_timestamp_day(candle.timestamp);
             }
             candles.push_back(candle);
         }
@@ -581,7 +581,7 @@ int qhs_to_csv(const int argc, char *argv[]) {
     }
 
     xquotes_history::QuotesHistory<> iQuotesHistory(path_storage, xquotes_history::PRICE_OHLC, xquotes_history::USE_COMPRESSION);
-    xtime::timestamp_t min_timestamp = 0, max_timestamp = 0;
+    ztime::timestamp_t min_timestamp = 0, max_timestamp = 0;
     int err = iQuotesHistory.get_min_max_day_timestamp(min_timestamp, max_timestamp);
     if(err != xquotes_history::OK) {
         std::cout << "error! error storage quotes, code: " << err << std::endl;
@@ -609,15 +609,15 @@ int qhs_to_csv(const int argc, char *argv[]) {
             header,
             is_write_header,
             min_timestamp,
-            max_timestamp + xtime::SECONDS_IN_DAY - 1,
+            max_timestamp + ztime::SECONDS_IN_DAY - 1,
             type_csv,
             type_correction_candle,
             time_zone,
             decimal_places,
-            [&](xquotes_history::Candle &candle, const xtime::timestamp_t timestamp)->bool {
+            [&](xquotes_history::Candle &candle, const ztime::timestamp_t timestamp)->bool {
         int err_candle = iQuotesHistory.get_candle(candle, timestamp);
-        if(timestamp % xtime::SECONDS_IN_DAY == 0) {
-            std::cout << "date: " << xtime::get_str_date(timestamp) << "\r";
+        if(timestamp % ztime::SECONDS_IN_DAY == 0) {
+            std::cout << "date: " << ztime::get_str_date(timestamp) << "\r";
         }
         if(err_candle != xquotes_history::OK && type_correction_candle == xquotes_csv::SKIPPING_BAD_CANDLES) return false;
         return true;
@@ -656,7 +656,7 @@ int qhs_date(const int argc, char *argv[]) {
     }
 
     xquotes_history::QuotesHistory<> iQuotesHistory(path_storage, xquotes_history::PRICE_OHLC, xquotes_history::USE_COMPRESSION);
-    xtime::timestamp_t min_timestamp = 0, max_timestamp = 0;
+    ztime::timestamp_t min_timestamp = 0, max_timestamp = 0;
     int err = iQuotesHistory.get_min_max_day_timestamp(min_timestamp, max_timestamp);
     if(err != xquotes_history::OK) {
         std::cout << "error! error storage quotes, code: " << err << std::endl;
@@ -669,31 +669,31 @@ int qhs_date(const int argc, char *argv[]) {
     }
 
     if(time_zone == xquotes_history::CET_TO_GMT) {
-        min_timestamp = xtime::convert_cet_to_gmt(min_timestamp);
-        max_timestamp = xtime::convert_cet_to_gmt(max_timestamp);
+        min_timestamp = ztime::convert_cet_to_gmt(min_timestamp);
+        max_timestamp = ztime::convert_cet_to_gmt(max_timestamp);
     } else
     if(time_zone == xquotes_history::EET_TO_GMT) {
-        min_timestamp = xtime::convert_eet_to_gmt(min_timestamp);
-        max_timestamp = xtime::convert_eet_to_gmt(max_timestamp);
+        min_timestamp = ztime::convert_eet_to_gmt(min_timestamp);
+        max_timestamp = ztime::convert_eet_to_gmt(max_timestamp);
     } else
     if(time_zone == xquotes_history::MSK_TO_GMT) {
-        min_timestamp = min_timestamp - 3*xtime::SECONDS_IN_HOUR;
-        max_timestamp = max_timestamp - 3*xtime::SECONDS_IN_HOUR;
+        min_timestamp = min_timestamp - 3*ztime::SECONDS_IN_HOUR;
+        max_timestamp = max_timestamp - 3*ztime::SECONDS_IN_HOUR;
     } else
     if(time_zone == xquotes_history::GMT_TO_CET) {
-        min_timestamp = xtime::convert_gmt_to_cet(min_timestamp);
-        max_timestamp = xtime::convert_gmt_to_cet(max_timestamp);
+        min_timestamp = ztime::convert_gmt_to_cet(min_timestamp);
+        max_timestamp = ztime::convert_gmt_to_cet(max_timestamp);
     } else
     if(time_zone == xquotes_history::GMT_TO_EET) {
-        min_timestamp = xtime::convert_gmt_to_eet(min_timestamp);
-        max_timestamp = xtime::convert_gmt_to_eet(max_timestamp);
+        min_timestamp = ztime::convert_gmt_to_eet(min_timestamp);
+        max_timestamp = ztime::convert_gmt_to_eet(max_timestamp);
     } else
     if(time_zone == xquotes_history::GMT_TO_MSK) {
-        min_timestamp = min_timestamp + 3*xtime::SECONDS_IN_HOUR;
-        max_timestamp = max_timestamp + 3*xtime::SECONDS_IN_HOUR;
+        min_timestamp = min_timestamp + 3*ztime::SECONDS_IN_HOUR;
+        max_timestamp = max_timestamp + 3*ztime::SECONDS_IN_HOUR;
     }
 
-    std::cout << "date: " << xtime::get_str_date(min_timestamp) << " - " << xtime::get_str_date(max_timestamp) << std::endl;
+    std::cout << "date: " << ztime::get_str_date(min_timestamp) << " - " << ztime::get_str_date(max_timestamp) << std::endl;
     return 0;
 }
 
@@ -874,7 +874,7 @@ int merge_date(const int argc, char *argv[]) {
 
 int calc_subfile_crc64(const int argc, char *argv[]) {
     std::string path_storage;
-    xtime::timestamp_t date_timestamp = 0;
+    ztime::timestamp_t date_timestamp = 0;
     for(int i = 1; i < argc; ++i) {
         std::string value = std::string(argv[i]);
         if((value == "path_raw_storage") && (i + 1) < argc) {
@@ -884,7 +884,7 @@ int calc_subfile_crc64(const int argc, char *argv[]) {
             path_storage = std::string(argv[i + 1]);
         } else
         if((value == "date") && (i + 1) < argc) {
-            xtime::convert_str_to_timestamp(std::string(argv[i + 1]), date_timestamp);
+            ztime::convert_str_to_timestamp(std::string(argv[i + 1]), date_timestamp);
         }
     }
     if(path_storage.size() == 0) {
@@ -896,9 +896,9 @@ int calc_subfile_crc64(const int argc, char *argv[]) {
         return -1;
     }
     xquotes_storage::Storage storage(path_storage);
-    const xquotes_common::key_t key_subfile = xtime::get_day(date_timestamp);
+    const xquotes_common::key_t key_subfile = ztime::get_day(date_timestamp);
     long long crc = storage.get_crc64_subfile(key_subfile);
-    std::cout << "subfile " << key_subfile << " date: " << xtime::get_str_date_time(date_timestamp) << " crc64: " << crc << std::endl;
+    std::cout << "subfile " << key_subfile << " date: " << ztime::get_str_date_time(date_timestamp) << " crc64: " << crc << std::endl;
     return 0;
 }
 

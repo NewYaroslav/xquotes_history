@@ -40,7 +40,7 @@
 
 #include "xquotes_common.hpp"
 #include "banana_filesystem.hpp"
-#include "xtime.hpp"
+#include "ztime.hpp"
 #include <functional>
 #include <iostream>
 
@@ -96,7 +96,7 @@ namespace xquotes_csv {
                 seconds = atoi((str_time.substr(6, 2)).c_str());
             }
             if(found_point == 4) {
-               timestamp =  xtime::get_timestamp(
+               timestamp =  ztime::get_timestamp(
                     atoi((str_date.substr(8, 2)).c_str()),
                     atoi((str_date.substr(5, 2)).c_str()),
                     atoi((str_date.substr(0, 4)).c_str()),
@@ -105,7 +105,7 @@ namespace xquotes_csv {
                     seconds);
             } else
             if(found_point == 2) {
-                timestamp =  xtime::get_timestamp(
+                timestamp =  ztime::get_timestamp(
                     atoi((str_date.substr(0, 2)).c_str()), // день
                     atoi((str_date.substr(3, 2)).c_str()), // месяц
                     atoi((str_date.substr(6, 4)).c_str()), // год
@@ -170,12 +170,12 @@ namespace xquotes_csv {
             unsigned long long timestamp;
             double open, high, low, close, volume;
             if(parse_line(buffer, timestamp, open, high, low, close, volume)) {
-                if(time_zone == CET_TO_GMT) timestamp = xtime::convert_cet_to_gmt(timestamp);
-                else if(time_zone == EET_TO_GMT) timestamp = xtime::convert_eet_to_gmt(timestamp);
-                else if(time_zone == MSK_TO_GMT) timestamp = timestamp - 3*xtime::SECONDS_IN_HOUR;
-                else if(time_zone == GMT_TO_CET) timestamp = xtime::convert_gmt_to_cet(timestamp);
-                else if(time_zone == GMT_TO_EET) timestamp = xtime::convert_gmt_to_eet(timestamp);
-                else if(time_zone == GMT_TO_MSK) timestamp = timestamp + 3*xtime::SECONDS_IN_HOUR;
+                if(time_zone == CET_TO_GMT) timestamp = ztime::convert_cet_to_gmt(timestamp);
+                else if(time_zone == EET_TO_GMT) timestamp = ztime::convert_eet_to_gmt(timestamp);
+                else if(time_zone == MSK_TO_GMT) timestamp = timestamp - 3*ztime::SECONDS_IN_HOUR;
+                else if(time_zone == GMT_TO_CET) timestamp = ztime::convert_gmt_to_cet(timestamp);
+                else if(time_zone == GMT_TO_EET) timestamp = ztime::convert_gmt_to_eet(timestamp);
+                else if(time_zone == GMT_TO_MSK) timestamp = timestamp + 3*ztime::SECONDS_IN_HOUR;
                 f(Candle(open, high, low, close, volume, timestamp), false);
             }
         }
@@ -227,13 +227,13 @@ namespace xquotes_csv {
             const std::string &file_name,
             const std::string &header,
             const bool &is_write_header,
-            const xtime::timestamp_t &start_timestamp,
-            const xtime::timestamp_t &stop_timestamp,
+            const ztime::timestamp_t &start_timestamp,
+            const ztime::timestamp_t &stop_timestamp,
             const int &type_csv,
             const int &type_correction_candle,
             const int &time_zone,
             const int &decimal_places,
-            std::function<bool(Candle &candle, const xtime::timestamp_t timestamp)> f) {
+            std::function<bool(Candle &candle, const ztime::timestamp_t timestamp)> f) {
         std::ofstream file(file_name);
         if(!file.is_open()) {
             return FILE_CANNOT_OPENED;
@@ -252,7 +252,7 @@ namespace xquotes_csv {
 
         if(is_write_header) file << header << std::endl;
 
-        xtime::timestamp_t timestamp = start_timestamp;
+        ztime::timestamp_t timestamp = start_timestamp;
         Candle old_candle;
         const int BUFFER_SIZE = 1024;
         char buffer[BUFFER_SIZE];
@@ -260,19 +260,19 @@ namespace xquotes_csv {
         while(true) {
             Candle candle;
             if(!f(candle, timestamp)) {
-                timestamp += xtime::SECONDS_IN_MINUTE;
+                timestamp += ztime::SECONDS_IN_MINUTE;
                 if(timestamp > stop_timestamp) break;
                 continue;
             }
 
             if(type_correction_candle == SKIPPING_BAD_CANDLES && !validation_candles(candle)) {
-                timestamp += xtime::SECONDS_IN_MINUTE;
+                timestamp += ztime::SECONDS_IN_MINUTE;
                 if(timestamp > stop_timestamp) break;
                 continue;
             } else
             if(type_correction_candle == FILLING_BAD_CANDLES && !validation_candles(candle)) {
                 if(!validation_candles(old_candle)) {
-                    timestamp += xtime::SECONDS_IN_MINUTE;
+                    timestamp += ztime::SECONDS_IN_MINUTE;
                     if(timestamp > stop_timestamp) break;
                     continue;
                 }
@@ -282,15 +282,15 @@ namespace xquotes_csv {
                 old_candle = candle;
             }
 
-            xtime::timestamp_t t =
-                time_zone == CET_TO_GMT ? xtime::convert_cet_to_gmt(candle.timestamp) :
-                time_zone == EET_TO_GMT ? xtime::convert_eet_to_gmt(candle.timestamp) :
-                time_zone == MSK_TO_GMT ? candle.timestamp - 3*xtime::SECONDS_IN_HOUR :
-                time_zone == GMT_TO_CET ? xtime::convert_gmt_to_cet(candle.timestamp) :
-                time_zone == GMT_TO_EET ? xtime::convert_gmt_to_eet(candle.timestamp) :
-                time_zone == GMT_TO_MSK ? candle.timestamp + 3*xtime::SECONDS_IN_HOUR :
+            ztime::timestamp_t t =
+                time_zone == CET_TO_GMT ? ztime::convert_cet_to_gmt(candle.timestamp) :
+                time_zone == EET_TO_GMT ? ztime::convert_eet_to_gmt(candle.timestamp) :
+                time_zone == MSK_TO_GMT ? candle.timestamp - 3*ztime::SECONDS_IN_HOUR :
+                time_zone == GMT_TO_CET ? ztime::convert_gmt_to_cet(candle.timestamp) :
+                time_zone == GMT_TO_EET ? ztime::convert_gmt_to_eet(candle.timestamp) :
+                time_zone == GMT_TO_MSK ? candle.timestamp + 3*ztime::SECONDS_IN_HOUR :
                 candle.timestamp;
-            xtime::DateTime date_time(t);
+            ztime::DateTime date_time(t);
             std::fill(buffer, buffer + BUFFER_SIZE, '\0');
             switch(type_csv) {
             case MT4:
@@ -344,7 +344,7 @@ namespace xquotes_csv {
             }
             std::string line(buffer);
             file << line << std::endl;
-            timestamp += xtime::SECONDS_IN_MINUTE;
+            timestamp += ztime::SECONDS_IN_MINUTE;
             if(timestamp > stop_timestamp) break;
         }
         file.close();

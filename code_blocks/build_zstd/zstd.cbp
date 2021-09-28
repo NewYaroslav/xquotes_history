@@ -68,8 +68,10 @@
 		<Unit filename="../../lib/zstd/lib/common/zstd_common.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="../../lib/zstd/lib/common/zstd_deps.h" />
 		<Unit filename="../../lib/zstd/lib/common/zstd_errors.h" />
 		<Unit filename="../../lib/zstd/lib/common/zstd_internal.h" />
+		<Unit filename="../../lib/zstd/lib/common/zstd_trace.h" />
 		<Unit filename="../../lib/zstd/lib/compress/fse_compress.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -84,6 +86,19 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="../../lib/zstd/lib/compress/zstd_compress_internal.h" />
+		<Unit filename="../../lib/zstd/lib/compress/zstd_compress_literals.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zstd/lib/compress/zstd_compress_literals.h" />
+		<Unit filename="../../lib/zstd/lib/compress/zstd_compress_sequences.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zstd/lib/compress/zstd_compress_sequences.h" />
+		<Unit filename="../../lib/zstd/lib/compress/zstd_compress_superblock.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zstd/lib/compress/zstd_compress_superblock.h" />
+		<Unit filename="../../lib/zstd/lib/compress/zstd_cwksp.h" />
 		<Unit filename="../../lib/zstd/lib/compress/zstd_double_fast.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -100,6 +115,7 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="../../lib/zstd/lib/compress/zstd_ldm.h" />
+		<Unit filename="../../lib/zstd/lib/compress/zstd_ldm_geartab.h" />
 		<Unit filename="../../lib/zstd/lib/compress/zstd_opt.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -111,6 +127,7 @@
 		<Unit filename="../../lib/zstd/lib/decompress/huf_decompress.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="../../lib/zstd/lib/decompress/huf_decompress_amd64.S" />
 		<Unit filename="../../lib/zstd/lib/decompress/zstd_ddict.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -148,40 +165,10 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="../../lib/zstd/lib/dictBuilder/zdict.h" />
-		<Unit filename="../../lib/zstd/lib/legacy/zstd_legacy.h" />
-		<Unit filename="../../lib/zstd/lib/legacy/zstd_v01.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="../../lib/zstd/lib/legacy/zstd_v01.h" />
-		<Unit filename="../../lib/zstd/lib/legacy/zstd_v02.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="../../lib/zstd/lib/legacy/zstd_v02.h" />
-		<Unit filename="../../lib/zstd/lib/legacy/zstd_v03.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="../../lib/zstd/lib/legacy/zstd_v03.h" />
-		<Unit filename="../../lib/zstd/lib/legacy/zstd_v04.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="../../lib/zstd/lib/legacy/zstd_v04.h" />
-		<Unit filename="../../lib/zstd/lib/legacy/zstd_v05.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="../../lib/zstd/lib/legacy/zstd_v05.h" />
-		<Unit filename="../../lib/zstd/lib/legacy/zstd_v06.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="../../lib/zstd/lib/legacy/zstd_v06.h" />
-		<Unit filename="../../lib/zstd/lib/legacy/zstd_v07.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="../../lib/zstd/lib/legacy/zstd_v07.h" />
+		<Unit filename="../../lib/zstd/lib/zdict.h" />
 		<Unit filename="../../lib/zstd/lib/zstd.h" />
+		<Unit filename="../../lib/zstd/lib/zstd_errors.h" />
 		<Extensions>
-			<code_completion />
-			<envvars />
-			<debugger />
 			<lib_finder disable_auto="1" />
 		</Extensions>
 	</Project>

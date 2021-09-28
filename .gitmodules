@@ -10,3 +10,6 @@
 [submodule "lib/json"]
 	path = lib/json
 	url = https://github.com/nlohmann/json.git
+[submodule "lib/ztime-cpp"]
+	path = lib/ztime-cpp
+	url = https://github.com/NewYaroslav/ztime-cpp.git

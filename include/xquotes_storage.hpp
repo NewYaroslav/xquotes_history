@@ -33,7 +33,7 @@
 
 #include "xquotes_common.hpp"
 #include "banana_filesystem.hpp"
-#include "xtime.hpp"
+#include "ztime.hpp"
 #include <limits>
 #include <algorithm>
 #include <random>
@@ -42,7 +42,7 @@
 
 #ifndef XQUOTES_NOT_USE_ZSTD
 #define XQUOTES_USE_ZSTD 1
-#include "dictBuilder/zdict.h"
+#include "zdict.h"
 #include "zstd.h"
 #else
 #define XQUOTES_USE_ZSTD 0
@@ -307,7 +307,7 @@ namespace xquotes_storage {
                     is_subfile_found = false;
                 }
                 // находим случайное имя файла
-                int seed = xtime::get_millisecond();
+                int seed = ztime::get_millisecond();
                 std::string temp_file = "";
                 while(true) {
                     temp_file = get_random_name(seed);

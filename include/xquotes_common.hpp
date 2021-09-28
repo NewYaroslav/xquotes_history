@@ -33,7 +33,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <cmath>
-#include "xtime.hpp"
+#include "ztime.hpp"
 
 namespace xquotes_common {
     typedef unsigned short key_t;
@@ -73,7 +73,7 @@ namespace xquotes_common {
         double low = 0;
         double close = 0;
         double volume = 0;
-        xtime::timestamp_t timestamp = 0;
+        ztime::timestamp_t timestamp = 0;
         Candle() {};
 
         Candle(
@@ -81,7 +81,7 @@ namespace xquotes_common {
                 const double &high,
                 const double &low,
                 const double &close,
-                const xtime::timestamp_t &timestamp) {
+                const ztime::timestamp_t &timestamp) {
             Candle::open = open;
             Candle::high = high;
             Candle::low = low;
@@ -95,7 +95,7 @@ namespace xquotes_common {
                 const double &low,
                 const double &close,
                 const double &volume,
-                const xtime::timestamp_t &timestamp) {
+                const ztime::timestamp_t &timestamp) {
             Candle::open = open;
             Candle::high = high;
             Candle::low = low;

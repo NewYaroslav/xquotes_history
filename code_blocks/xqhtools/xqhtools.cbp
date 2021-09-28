@@ -41,7 +41,7 @@
 					<Add option="-O2" />
 					<Add option="-std=c++11" />
 					<Add directory="../../include" />
-					<Add directory="../../lib/xtime_cpp/src" />
+					<Add directory="../../lib/ztime-cpp/src" />
 					<Add directory="../../lib/banana-filesystem-cpp/include" />
 					<Add directory="../../lib/zstd/lib" />
 				</Compiler>
@@ -51,7 +51,7 @@
 					<Add option="-static-libgcc" />
 					<Add option="-static" />
 					<Add library="zstd" />
-					<Add directory="../../lib/xtime_cpp/src" />
+					<Add directory="../../lib/ztime-cpp/src" />
 					<Add directory="../../include" />
 					<Add directory="../../lib/banana-filesystem-cpp/include" />
 					<Add directory="../../lib/zstd/lib" />
@@ -104,13 +104,11 @@
 		<Unit filename="../../include/xquotes_storage.hpp" />
 		<Unit filename="../../include/xquotes_zstd.hpp" />
 		<Unit filename="../../lib/banana-filesystem-cpp/include/banana_filesystem.hpp" />
-		<Unit filename="../../lib/xtime_cpp/src/xtime.cpp" />
 		<Unit filename="../../lib/xtime_cpp/src/xtime.hpp" />
+		<Unit filename="../../lib/ztime-cpp/src/ztime.cpp" />
+		<Unit filename="../../lib/ztime-cpp/src/ztime.hpp" />
 		<Unit filename="main.cpp" />
 		<Extensions>
-			<code_completion />
-			<envvars />
-			<debugger />
 			<lib_finder disable_auto="1" />
 		</Extensions>
 	</Project>
